@@ -4,12 +4,15 @@
 # Add specific configuration for running IPython notebook on a spark base VM
 # **************************************************************************
 
-vagrant_command = ARGV[0]
-
-
 # --------------------------------------------------------------------------
 # Variables defining the configuration of Spark & notebook 
 # Modify as needed
+
+# Username that will run all spark processes.
+# If remote (yarn) mode is ever going to be used, it is advisable to change it
+# to a recognizable unique name, so that it is easily identify in cluster logs
+spark_username = 'spark-vm'
+
 
 # The virtual machine exports the port where the notebook process by forwarding
 # it to this port of the local machine
@@ -23,11 +26,6 @@ port_ipython = 8008
 # It can be changed at runtime by executing inside the virtual machine, as 
 # root user, "service spark-notebook mode <mode>"
 spark_mode = 'local'
-
-# Username that will run all spark processes.
-# If remote (yarn) mode is going to be used, it is advisable to change it
-# to a recognizable unique name, so that it is easily identify in cluster logs
-spark_username = 'spark-vm'
 
 # ---- These options are used only when running non-local tasks
 # When in YARN mode, this defines the location of the Yarn Resource Manager
@@ -52,6 +50,8 @@ spark_basedir = '/opt/spark'
 # --------------------------------------------------------------------------
 # Vagrant configuration
 
+vagrant_command = ARGV[0]
+
 # The "2" in Vagrant.configure configures the configuration version
 Vagrant.configure(2) do |config|
 
@@ -64,8 +64,8 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using 
-    vgrspark.vm.box = "tid-spark/base64"
-    vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.box"
+    vgrspark.vm.box = "tid/spark-base64"
+    vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/artifactory-tid-spark-base64.json"
     #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/tid-spark-base64.json"
 
     # Disable automatic box update checking. If you disable this, then
