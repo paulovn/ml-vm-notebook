@@ -126,8 +126,8 @@ Vagrant.configure(2) do |config|
     privileged: true,
     args: [ spark_username ],
     inline: <<-SHELL
-     id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m "$1"
-     su -l "$1" <<-EOF
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m "$1"
+      su -l "$1" <<-EOF
 mkdir bin tmp .ssh 2>/dev/null
 chmod 700 .ssh
 rm -f bin/{python2.7,pip,ipython}
@@ -135,9 +135,9 @@ ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython} /home/$1/bin
 test -d .jupyter || mkdir .jupyter
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
 EOF
-     # Install the vagrant public key so that we can ssh to this account
-     cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
-     chown $1.$1 /home/$1/.ssh/authorized_keys
+      # Install the vagrant public key so that we can ssh to this account
+      cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
+      chown $1.$1 /home/$1/.ssh/authorized_keys
     SHELL
 
     # Mount the shared folder as the new created user, so that it can write
@@ -172,8 +172,14 @@ c.NotebookApp.notebook_dir = u'/home/$1/IPNB'
 c.IPKernelApp.matplotlib = 'inline'
 EOF
 "
+     # Install the ToC notebook extension
      su -l "$1" <<-EOF
 python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True}})'
+EOF
+
+    # Install the IRKernel
+     su -l "$1" <<-EOF
+PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
 EOF
     SHELL
 
@@ -186,9 +192,14 @@ EOF
     args: [ spark_basedir, spark_name, spark_mode, 
             spark_history_server, spark_yarn_master, spark_username ],
     inline: <<-SHELL
-       CFG=/etc/sysconfig/spark-notebook-config
+       # Link the spark startup script, and set it up for starting
+       rm -f /etc/init.d/spark-notebook
+       chmod 775 /opt/ipnb/bin/ext/spark-notebook
+       ln -s /opt/ipnb/bin/ext/spark-notebook /etc/init.d
+       chkconfig --add spark-notebook
 
        # Set the name of the initially active config
+       CFG=/etc/sysconfig/spark-notebook-config
        echo "Configuring Spark mode as: $3"
        echo "$3" > $CFG
 
@@ -215,8 +226,7 @@ PYSPARK_PYTHON=/opt/ipnb/bin/ext/python2.7
 PYSPARK_DRIVER_PYTHON=/opt/ipnb/bin/ext/jupyter-notebook
 PYSPARK_SUBMIT_ARGS="--master yarn-client --deploy-mode client  --driver-memory 1536M  --num-executors 16 --executor-cores 2 --executor-memory 1g $YARN_OPTS"
 EOF
-      mkdir -p /opt/hadoop/etc 
-      if [ "$4" ]; then
+      if [ "$5" ]; then
         service spark-notebook config-yarn "$5"
       fi 
 
@@ -230,11 +240,6 @@ PYSPARK_DRIVER_PYTHON=/opt/ipnb/bin/ext/jupyter-notebook
 PYSPARK_SUBMIT_ARGS="--master spark://$5:7077 --deploy-mode client  --driver-memory 1536M  --num-executors 16 --executor-cores 2 --executor-memory 1g"
 EOF
 
-      # Link the spark startup script, and set it up for starting
-      rm -f /etc/init.d/spark-notebook
-      chmod 775 /opt/ipnb/bin/ext/spark-notebook
-      ln -s /opt/ipnb/bin/ext/spark-notebook /etc/init.d
-      chkconfig --add spark-notebook
   SHELL
 
 
