@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 # **************************************************************************
-# Add specific configuration for running IPython notebook on a spark base VM
+# Add specific configuration for running IPython notebooks on a Spark base VM
 # **************************************************************************
 
 # --------------------------------------------------------------------------
@@ -40,7 +40,7 @@ spark_history_server = 'samson03.hi.inet:18080'
 # Don't change these
 
 # The version of Spark we are using
-spark_version = '1.5.0'
+spark_version = '1.5.2'
 spark_name = 'spark-' + spark_version + '-bin-hadoop2.6'
 
 # The place where Spark is deployed inside the local machine
@@ -52,19 +52,22 @@ spark_basedir = '/opt/spark'
 
 vagrant_command = ARGV[0]
 
-# The "2" in Vagrant.configure configures the configuration version
+# The "2" in Vagrant.configure sets the configuration version
 Vagrant.configure(2) do |config|
 
+  # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
       config.ssh.username = spark_username
   end
 
-  config.vm.define "vgr-tid-sparknb" do |vgrspark|
+
+  config.vm.define "vgr-tid-spark-nb64" do |vgrspark|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using 
     vgrspark.vm.box = "tid/spark-base64"
+    vgrspark.vm.box_version = ">= 0.9.5"
     vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/artifactory-tid-spark-base64.json"
     #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/tid-spark-base64.json"
 
@@ -76,7 +79,8 @@ Vagrant.configure(2) do |config|
     # Deactivate the usual synced folder and use instead a local subdirectory
     vgrspark.vm.synced_folder ".", "/vagrant", disabled: true
     vgrspark.vm.synced_folder "vmfiles", "/vagrant", 
-    disabled: false
+      mount_options: ["dmode=775","fmode=664"],
+      disabled: false
     #owner: spark_username
     #auto_mount: false
   
@@ -86,7 +90,7 @@ Vagrant.configure(2) do |config|
       # Set the hostname in VirtualBox
       vb.name = vgrspark.vm.hostname.to_s
       # Customize the amount of memory on the VM
-      vb.memory = "1024"
+      vb.memory = "2048"
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
     end
@@ -126,7 +130,7 @@ Vagrant.configure(2) do |config|
     privileged: true,
     args: [ spark_username ],
     inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m "$1"
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
       su -l "$1" <<-EOF
 mkdir bin tmp .ssh 2>/dev/null
 chmod 700 .ssh
@@ -141,15 +145,17 @@ EOF
     SHELL
 
     # Mount the shared folder as the new created user, so that it can write
-    vgrspark.vm.provision "02.mount",
-    type: "shell",
-    privileged: true,
-    keep_color: true,
-    args: [ spark_username ],
-    inline: <<-SHELL
-umount /vagrant
-mount -t vboxsf -o uid=`id -u $1`,gid=`id -g $1` vagrant /vagrant
-SHELL
+    # ---> not, instead we have added the user to the vagrant group and
+    # mounted the shared folder with group permissions
+#    vgrspark.vm.provision "02.mount",
+#    type: "shell",
+#    privileged: true,
+#    keep_color: true,
+#    args: [ spark_username ],
+#    inline: <<-SHELL
+#umount /vagrant
+#mount -t vboxsf -o uid=$(id -u $1),gid=$(id -g $1) vagrant /vagrant
+#SHELL
 
     # .........................................
     # Configure the IPython Notebook profile to run Spark jobs
@@ -158,9 +164,9 @@ SHELL
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ spark_username, port_ipython ],
+    args: [ spark_username, port_ipython, spark_basedir, spark_name ],
     inline: <<-SHELL
-      su -l "$1" -c "cat <<-EOF > /home/$1/.jupyter/jupyter_notebook_config.py
+     su -l "$1" -c "cat <<-EOF > /home/$1/.jupyter/jupyter_notebook_config.py
 c = get_config()
 # define server
 c.NotebookApp.ip = '*'
@@ -172,15 +178,50 @@ c.NotebookApp.notebook_dir = u'/home/$1/IPNB'
 c.IPKernelApp.matplotlib = 'inline'
 EOF
 "
-     # Install the ToC notebook extension
-     su -l "$1" <<-EOF
-python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True}})'
-EOF
-
-    # Install the IRKernel
+     # Install the IRKernel
      su -l "$1" <<-EOF
 PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
 EOF
+
+     # Install the Spark kernel
+     KDIR=/home/$1/.local/share/jupyter/kernels/spark
+     su -l "$1" <<-EOF
+mkdir -p $KDIR
+cat <<-KERNEL >$KDIR/kernel.json
+{
+    "display_name": "Scala 2.10 (Spark 1.5)",
+    "language_info": { "name": "scala" },
+    "argv": [
+        "$3/spark-kernel/bin/spark-kernel",
+        "--profile",
+        "{connection_file}"
+    ],
+    "codemirror_mode": "scala",
+    "env": {
+        "SPARK_OPTS": "--master=local[2] --driver-java-options=-Xms1024M --driver-java-options=-Xmx4096M --driver-java-options=-Dlog4j.logLevel=info",
+        "MAX_INTERPRETER_THREADS": "16",
+        "CAPTURE_STANDARD_OUT": "true",
+        "CAPTURE_STANDARD_ERR": "true",
+        "SEND_EMPTY_OUTPUT": "false",
+        "SPARK_HOME": "$3/$4",
+        "PYTHONPATH": "$3/$4/python/pyspark:$3/$4/python/lib/py4j-0.8.2.1-src.zip"
+     }
+}
+KERNEL
+# Copy logo
+cp -p $3/spark-kernel/scala-spark-icon-64x64.png $KDIR/logo-64x64.png
+EOF
+
+     # Install the notebook extensions
+     su -l "$1" <<-EOF
+python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "search-replace": True, "toggle-headers": True }})'
+EOF
+
+     # Put the custom icon in place
+     cd /opt/ipnb/lib/python2.7/site-packages/notebook/static/base/images
+     mv favicon.ico favicon-orig.ico
+     ln -s favicon-custom.ico favicon.ico
+
     SHELL
 
     # .........................................
@@ -245,8 +286,15 @@ EOF
 
   # .........................................
   # Start Spark Notebook
+  # Note: we make this one to run every time the machine boots, because during 
+  # the VM boot sequence the startup script is executed before vagrant has 
+  # mounted the shared folder, and hence it fails. 
+  # Running it as a provisioning makes it run after vagrant mounts, so it works.
+  # [An alternative would be to force mounting on startup, by adding the
+  # vboxsf mount point to /etc/fstab during provisioning]
   vgrspark.vm.provision "05.nbstart", 
     type: "shell", 
+    run: "always",
     privileged: true,
     keep_color: true,    
     inline: "/etc/init.d/spark-notebook start"
