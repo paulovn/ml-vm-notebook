@@ -67,7 +67,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using 
     vgrspark.vm.box = "tid/spark-base64"
-    vgrspark.vm.box_version = ">= 0.9.5"
+    vgrspark.vm.box_version = "= 0.9.5"
     vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/artifactory-tid-spark-base64.json"
     #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/tid-spark-base64.json"
 
