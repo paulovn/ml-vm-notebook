@@ -32,13 +32,12 @@ A `vagrant up` command in the checked-out folder (the same directory where the `
 should be enough to download the base box, start the vm and provision it. Before doing so, 
 you may want to customize some VM options by looking at the top of the Vagrantfile.
 
-Once done, a notebook server will be running on `[http://localhost:8008]`
+Once done, a notebook server will be running on [`http://localhost:8008`](http://localhost:8008)
 
 The notebook server is configured to browse the files in the `vmfiles/IPNB` 
 subdirectory, so to add notebooks place them there (that subdirectory is shared
 between the host and the guest VM). A few example mini-notebooks are already provided 
 there.
 
-Note that the base box (the one that was created by the `[base](https://github.com/paulovn/machine-learning-vm)` 
-repository) should be accessible when provisioning this VM. The default URL in the Vagrantfile 
+Note that the base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) should be accessible when provisioning this VM. The default URL in the Vagrantfile 
 points to a box publicly available in ATLAS, so there should be no problem.
