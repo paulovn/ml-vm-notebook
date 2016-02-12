@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 # **************************************************************************
-# Add specific configuration for running IPython notebooks on a Spark base VM
+# Add specific configuration for running IPython notebooks on a Spark VM
 # **************************************************************************
 
 # --------------------------------------------------------------------------
@@ -13,8 +13,8 @@ vm_memory = '2048'
 
 # Username that will run all spark processes.
 # If remote (yarn) mode is ever going to be used, it is advisable to change it
-# to a recognizable unique name, so that it is easily identified in cluster logs
-spark_username = 'sparkvm'
+# to a recognizable unique name, so that it is easily identified in the logs
+spark_username = 'sparkvmuser'
 
 # The virtual machine exports the port where the notebook process by forwarding
 # it to this port of the local machine
@@ -30,11 +30,11 @@ port_ipython = 8008
 # root user, "service spark-notebook set-mode <mode>"
 spark_mode = 'local'
 
-# ----------
-# These options are used only when running non-local tasks. They define
+# -----------------
+# These 3 options are used only when running non-local tasks. They define
 # the access points for the remote cluster.
 # They can also be modified at runtime by executing inside the virtual
-# machine, as root user, "service spark-notebook set-addr <param>"
+# machine: "sudo service spark-notebook set-addr <A> <B> <C>"
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn 
 # mode, or the Spark master in standalone mode)
@@ -72,15 +72,21 @@ Vagrant.configure(2) do |config|
   end
 
 
-  config.vm.define "vgr-paulovn-spark-nb64" do |vgrspark|
+  config.vm.define "vm-spark-nb64" do |vgrspark|
 
     #config.name = "vgr-pyspark"
 
-    # The base box we are using 
+    # The base box we are using. Fetched from ATLAS
+    vgrspark.vm.box_version = "= 0.9.8"
     vgrspark.vm.box = "paulovn/spark-base64"
-    vgrspark.vm.box_version = "= 0.9.7"
-    #vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/artifactory-tid-spark-base64.json"
-    #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/tid-spark-base64.json"
+
+    # Alternative place: UAM internal
+    #vgrspark.vm.box = "uam/tid-base64"
+    #vgrspark.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
+    # Alternative place: TID internal or local box
+    #vgrspark.vm.box = "tid/spark-base64"
+    #vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
+    #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -96,7 +102,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrspark.vm.hostname = "vm-paulovn-sparknb"
+    vgrspark.vm.hostname = "vm-sparknotebook"
     vgrspark.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrspark.vm.hostname.to_s
