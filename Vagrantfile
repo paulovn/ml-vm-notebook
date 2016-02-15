@@ -76,12 +76,12 @@ Vagrant.configure(2) do |config|
 
     #config.name = "vgr-pyspark"
 
-    # The base box we are using. Fetched from ATLAS
+    # The base box we are using. As fetched from ATLAS
     vgrspark.vm.box_version = "= 0.9.8"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
-    #vgrspark.vm.box = "uam/tid-base64"
+    #vgrspark.vm.box = "uam/spark-base64"
     #vgrspark.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
     # Alternative place: TID internal or local box
     #vgrspark.vm.box = "tid/spark-base64"
@@ -103,6 +103,7 @@ Vagrant.configure(2) do |config|
   
     # Customize the virtual machine: set hostname & allocated RAM
     vgrspark.vm.hostname = "vm-sparknotebook"
+    vgrspark.vm.hostname = 'kongoni.hi.inet'
     vgrspark.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrspark.vm.hostname.to_s
@@ -119,30 +120,37 @@ Vagrant.configure(2) do |config|
     vgrspark.vm.network :forwarded_port, 
     guest: port_ipython, 
     host: port_ipython                  # Notebook UI
-    vgrspark.vm.network :forwarded_port, 
-    host: 4040, 
-    guest: 4040, 
-    auto_correct: true                  # Spark driver UI
 
-#    vgrspark.vm.network :forwarded_port, 
-#    host: 4041, 
-#    guest: 4041, 
-#    auto_correct: true                 # Spark driver UI, 2nd application
+    # Spark driver UI
+    vgrspark.vm.network :forwarded_port, host: 4040, guest: 4040, 
+    auto_correct: true
+
+    # Spark driver UI for the 2nd application (e.g. a command-line job)
+    vgrspark.vm.network :forwarded_port, host: 4041, guest: 4041,
+    auto_correct: true
+
+    # In case we fix Spark ports
+    #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
+    #vgrspark.vm.network :forwarded_port, host: 9235, guest: 9235
+    #vgrspark.vm.network :forwarded_port, host: 9236, guest: 9236
+    #vgrspark.vm.network :forwarded_port, host: 9237, guest: 9237
+    #vgrspark.vm.network :forwarded_port, host: 9238, guest: 9238
 
     # Declare a public network
     # This enables the machine to be connected from outside, which is a
     # must for Spark [it needs SPARK_LOCAL_IP to be set to the outside-visible
     # interface]
-    vgrspark.vm.network "public_network", 
-    type: "dhcp" 
+    vgrspark.vm.network "public_network",
+    type: "dhcp"
     # if more than one interface, we can set here which one to use
     # bridge: "wlan0"
     # :mac => "08002710A7ED"
     # :send_hostname_in_dhcp_request: true
 
+
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
-    # vgrspark.vm.network "private_network", ip: "192.168.33.10"
+    #vgrspark.vm.network "private_network", ip: "192.72.33.10"
 
     vgrspark.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
 
