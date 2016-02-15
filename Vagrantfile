@@ -103,7 +103,6 @@ Vagrant.configure(2) do |config|
   
     # Customize the virtual machine: set hostname & allocated RAM
     vgrspark.vm.hostname = "vm-sparknotebook"
-    vgrspark.vm.hostname = 'kongoni.hi.inet'
     vgrspark.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrspark.vm.hostname.to_s
