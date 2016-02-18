@@ -295,6 +295,19 @@ EOF
 
 
     # .........................................
+    # Create a subdirectory in the shared folder linked to the 
+    # default name of the Hive warehouse directory
+    vgrspark.vm.provision "05.hive.warehouse",
+    type: "shell",
+    keep_color: true,
+    privileged: true,
+    inline: <<-SHELL
+      mkdir -p /user/hive
+      ln -s /vagrant/warehouse /user/hive/warehouse
+    SHELL
+
+
+    # .........................................
     # Install the necessary components for nbconvert to work.
     # Do it only if the environment variable PROVISION_NBCONVERT has a 1 value
     if (ENV['PROVISION_NBCONVERT'] == '1')
