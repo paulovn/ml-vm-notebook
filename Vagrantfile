@@ -35,6 +35,9 @@ spark_mode = 'local'
 # the access points for the remote cluster.
 # They can also be modified at runtime by executing inside the virtual
 # machine: "sudo service spark-notebook set-addr <A> <B> <C>"
+# **IMPORTANT**: If remote mode is to be used, the virtual machine needs
+# a network interface in bridge mode. In that case Uncomment the relevant
+# lines in the networking section below
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn 
 # mode, or the Spark master in standalone mode)
@@ -115,41 +118,45 @@ Vagrant.configure(2) do |config|
     # **********************************************************************
     # Networking
 
-    # Port forwarding
+    # ---- NAT interface ----
+    # NAT port forwarding
     vgrspark.vm.network :forwarded_port, 
     guest: port_ipython, 
     host: port_ipython                  # Notebook UI
-
     # Spark driver UI
     vgrspark.vm.network :forwarded_port, host: 4040, guest: 4040, 
     auto_correct: true
-
     # Spark driver UI for the 2nd application (e.g. a command-line job)
     vgrspark.vm.network :forwarded_port, host: 4041, guest: 4041,
     auto_correct: true
 
-    # In case we fix Spark ports
+    # In case we want to fix Spark ports
     #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
     #vgrspark.vm.network :forwarded_port, host: 9235, guest: 9235
     #vgrspark.vm.network :forwarded_port, host: 9236, guest: 9236
     #vgrspark.vm.network :forwarded_port, host: 9237, guest: 9237
     #vgrspark.vm.network :forwarded_port, host: 9238, guest: 9238
 
+    # ---- bridged interface ----
     # Declare a public network
     # This enables the machine to be connected from outside, which is a
     # must for Spark [it needs SPARK_LOCAL_IP to be set to the outside-visible
-    # interface]
-    vgrspark.vm.network "public_network",
-    type: "dhcp"
-    # if more than one interface, we can set here which one to use
-    # bridge: "wlan0"
-    # :mac => "08002710A7ED"
-    # :send_hostname_in_dhcp_request: true
+    # interface].
+    # --> Uncomment the following two lines to enable bridge mode:
+    #vgrspark.vm.network "public_network",
+    #type: "dhcp"
+
+    # --> if the host has more than one interface, we can set which one to use
+    #bridge: "wlan0"
+    # --> we can also set the MAC address we will send to the DHCP server
+    #:mac => "08002710A7ED"
 
 
+    # ---- private interface ----
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
     #vgrspark.vm.network "private_network", ip: "192.72.33.10"
+
 
     vgrspark.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
 
