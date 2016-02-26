@@ -179,6 +179,7 @@ rm -f bin/{python2.7,pip,ipython}
 ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython} /home/$1/bin
 test -d .jupyter || mkdir .jupyter
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
+echo "export PYSPARK_DRIVER_PYTHON=ipython" >> .bash_profile
 EOF
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
