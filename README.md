@@ -41,13 +41,14 @@ The contents of the VM are:
 2. Open the Vagrantfile with a text editor and customize, if desired, the options at 
    the top of the file; see the relevant comments. Specially interesting might be 
    the amount of RAM assigned to the Virtual Machine and, if access to a remote 
-   cluster is sought, its address (note that the VM will also work with no changes)
+   cluster is sought, the IP address of the cluster (note that the VM will also work
+   with no changes to the Vagrantfile)
 3. Open a console/terminal, move (`cd`) to the folder where the Vagrantfile is located
    and execute a `vagrant up` command.
 4. Vagrant should launch the process and download the base box from the public 
    repository (this is only done once).
-5. Then the VM will be started and provisioned. The process will write progress 
-   messages to the screen
+5. Then the VM will be started and provisioned. The process will print progress 
+   messages to the terminal.
 
 Note that the base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) should be accessible when provisioning this VM. 
 The default URL in the Vagrantfile points to a box publicly available in ATLAS, so 
