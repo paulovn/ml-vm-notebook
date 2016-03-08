@@ -5,3 +5,5 @@
 *.log
 metastore_db
 
+vmfiles/warehouse/*
+
