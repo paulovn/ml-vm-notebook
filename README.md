@@ -5,7 +5,9 @@ Generated and provisioned with Vagrant.
 
 This instance builds on the `tid-spark/base64` VM (which already provides all the
 needed software packages). On top of that, it configures and launches a Spark 
-notebook process, exported as an HTTP service to a local port.
+notebook process, exported as an HTTP service to a local port. It allows 
+launching kernels in Python 2.7 (plain), Python 2.7 + Spark (pyspark),
+Scala + Spark and R.
 
 The repository also contains a number of example notebooks.
 
@@ -13,14 +15,17 @@ The contents of the VM are:
 
 * Apache Spark 1.6.0
 * Python 2.7.5 from the Software Collections
-* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn) plus IPython 4 + Jupyter notebook
-* R 3.2.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2)
-* Spark notebook Kernels for Scala ([Spark Kernel](https://github.com/ibm-et/spark-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default Python 2.7 kernel.
+* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn, Theano) plus IPython 4 + Jupyter notebook
+* R 3.2.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret)
+* Spark notebook Kernels for Python 2.7, Scala ([Spark Kernel](https://incubatorgithub.com/ibm-et/spark-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A couple of small notebook extensions
 * A notebook startup daemon script with facilities to configure Spark execution mode
 * Two additional Spark external libraries:
   - The Kafka Spark Streaming artifact
   - The [Spark CSV] (https://github.com/databricks/spark-csv) library
+
+**Important**: the default Python kernel for Notebook is **not** Spark-aware. Hence Python Spark Notebooks created with previous versions of this VM will not work initially. They can be made to work by changing its kernel (with the option in the menubar) to the "Pyspark" kernel. Once done, it is stored for future sessions.
+
 
 ## Installing
 
