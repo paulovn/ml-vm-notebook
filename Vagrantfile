@@ -74,13 +74,12 @@ Vagrant.configure(2) do |config|
       config.ssh.username = spark_username
   end
 
-
   config.vm.define "vm-spark-nb64" do |vgrspark|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 0.9.8"
+    vgrspark.vm.box_version = "= 0.9.9"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
@@ -278,16 +277,15 @@ EOF
             spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
      # Link the spark startup script, and set it up for starting
-     rm -f /etc/init.d/spark-notebook
-     chmod 775 /opt/ipnb/bin/ext/spark-notebook
-     ln -s /opt/ipnb/bin/ext/spark-notebook /etc/init.d
-     chkconfig --add spark-notebook
+     rm -f /etc/init.d/jupyter-notebook
+     chmod 775 /opt/ipnb/bin/ext/jupyter-notebook-mgr
+     ln -s /opt/ipnb/bin/ext/jupyter-notebook-mgr /etc/init.d/jupyter-notebook
+     chkconfig --add jupyter-notebook
 
      # Create the config for spark notebook
-     cat <<-EOF > /etc/sysconfig/spark-notebook
+     cat <<-EOF > /etc/sysconfig/jupyter-notebook
 NOTEBOOK_USER=$2
-NOTEBOOK_SCRIPT="$1/current/bin/pyspark"
-PYSPARK_DRIVER_PYTHON=/opt/ipnb/bin/ext/jupyter-notebook
+NOTEBOOK_SCRIPT=/opt/ipnb/bin/ext/jupyter-notebook
 EOF
 
      # Configure remote addresses
@@ -340,7 +338,7 @@ EOF
 
 
     # .........................................
-    # Start Spark Notebook
+    # Start Jupyter Notebook
     # Note: we make this one to run every time the machine boots, since during 
     # the VM boot sequence the startup script is executed before vagrant has 
     # mounted the shared folder, and hence it fails. 
@@ -353,7 +351,7 @@ EOF
       run: "always",
       privileged: true,
       keep_color: true,    
-      inline: "/etc/init.d/spark-notebook start"
+      inline: "/etc/init.d/jupyter-notebook start"
 
 
   end # config.vm.define
