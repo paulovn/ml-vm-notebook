@@ -3,76 +3,146 @@
 A 64 bit virtual machine for Machine Learning/Data Science tasks. 
 Generated and provisioned with Vagrant.
 
-This instance builds on the `tid-spark/base64` VM (which already provides all the
-needed software packages). On top of that, it configures and launches a Spark 
-notebook process, exported as an HTTP service to a local port. It allows 
-launching kernels in Python 2.7 (plain), Python 2.7 + Spark (pyspark),
-Scala + Spark and R.
+This instance builds on the `tid-spark/base64` VM (which already provides all 
+the needed software packages). On top of that, it configures and launches a
+Jupyter Notebook process, exported as an HTTP service to a local port. It 
+allows creating notebooks with four different kernels:
+  * Python 2.7 (plain), 
+  * Python 2.7 + Spark (pyspark),
+  * Scala + Spark
+  * R (with SparkR available, though not loaded by default).
 
 The repository also contains a number of example notebooks.
 
 The contents of the VM are:
 
-* Apache Spark 1.6.0
+* Apache Spark 1.6.1
 * Python 2.7.5 from the Software Collections
-* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn, Theano) plus IPython 4 + Jupyter notebook
-* R 3.2.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret)
-* Spark notebook Kernels for Python 2.7, Scala ([Spark Kernel](https://incubatorgithub.com/ibm-et/spark-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
-* A couple of small notebook extensions
+* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn, theano+keras) plus IPython 4 + Jupyter notebook
+* R 3.2.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret)
+* Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
+* A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
 * Two additional Spark external libraries:
   - The Kafka Spark Streaming artifact
   - The [Spark CSV] (https://github.com/databricks/spark-csv) library
 
-**Important**: the default Python kernel for Notebook is **not** Spark-aware. Hence Python Spark Notebooks created with previous versions of this VM will not work initially. They can be made to work by changing its kernel (with the option in the menubar) to the "Pyspark" kernel. Once done, it is stored for future sessions.
+**Important**: in this installation the default Python kernel for notebooks 
+is **not** Spark-aware. Hence Python Notebooks running Spark tasks that were 
+created with previous versions of this VM will not work initially. 
+They can be made to work by changing its kernel (use the option in the menubar)
+to the "Pyspark" kernel. Once done, it is stored in the notebook, so saving
+it will make it work in the future (but the saved notebook will *not*
+work in a previous version of the VM).
 
 
 ## Installing
 
 ### Requirements
 
-* Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), and 
-  around 10 GB of hard disk space, with a 64-bit Windows (7 or above), Linux 64 bits 
-  (Ubuntu, RedHat/CentOS, etc) or Mac OS X
+* Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), 
+  and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
+  Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
   * [Vagrant](https://www.vagrantup.com/) 1.7.4 or above
 
 ### Process
 
-1. Copy the Vagrantfile + examples into the computer, either by cloning the repository
-   or by downloading and uncompressing the ZIP file. Make sure to use a disk or 
-   partition with the mentioned 10 GB of free space.
-2. Open the Vagrantfile with a text editor and customize, if desired, the options at 
-   the top of the file; see the relevant comments. Specially interesting might be 
-   the amount of RAM assigned to the Virtual Machine and, if access to a remote 
-   cluster is sought, the IP address of the cluster (note that the VM will also work
-   with no changes to the Vagrantfile)
-3. Open a console/terminal, move (`cd`) to the folder where the Vagrantfile is located
-   and execute a `vagrant up` command.
+1. Copy the Vagrantfile + examples into the computer, either by cloning the 
+   repository or by downloading and extracting all files in the packaged
+   [ZIP file](archive/develop.zip). Make sure to use a disk or partition with 
+   the mentioned 10 GB of free space. Also, in Windows it might be advisable to
+   avoid using a folder name with spaces (sometimes it causes problems).
+
+2. If desired, open the Vagrantfile with a text editor and customize the 
+   options at the top of the file; see the relevant comments. 
+   Specially interesting might be the amount of RAM assigned to the Virtual 
+   Machine and, if access to a remote Spark cluster is sought, the IP address 
+   of the cluster. 
+   Note that no customization is needed to make the VM work (i.e. it will 
+   happily work with no changes to the Vagrantfile)
+
+3. Open a console/terminal, move (`cd`) to the folder where the Vagrantfile is 
+   located and execute a `vagrant up` command.
+
 4. Vagrant should launch the process and download the base box from the public 
    repository (this is only done once).
+
 5. Then the VM will be started and provisioned. The process will print progress 
    messages to the terminal.
 
 Note that the base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) should be accessible when provisioning this VM. 
-The default URL in the Vagrantfile points to a box publicly available in ATLAS, so 
-there should be no problem.
+The default URL in the Vagrantfile points to a box publicly available in ATLAS,
+so there should be no problem.
 
-### Operation
 
-Once done, there are two ways of accessing the Spark system:
+## Operation
 
-* A notebook server will be running on [`http://localhost:8008`](http://localhost:8008). Use a Web browser to access it.
-* A console session in the VM can be obtained by executing `vagrant ssh`. Once in
-  the session, the command-line Spark applications are available (`spark-submit`,
-  `spark-shell`, `pyspark`, etc). The logged user has `sudo` permissions.
+Once installation finishes, a notebook server will be running on [`http://localhost:8008`](http://localhost:8008). Use a Web browser to access it. 
 
-The `vmfiles` subfolder is configured to be mounted inside the VM as `/vagrant`,
-so anything in that subfolder can be accessed within the VM.
+By default it is also accessible externally, i.e. other machines in the network
+can also connect to it (unless the host computer has a firewall that blocks 
+port 8008).
+
+The `vmfiles` subfolder in the host is configured to be mounted inside the VM 
+as `/vagrant`, so anything in that subfolder can be accessed within the VM.
 
 Furthermore, the notebook server is configured to browse the files in the 
-`vmfiles/IPNB` subdirectory, so to add notebooks place them in it. A few example 
-mini-notebooks are already provided there.
+`vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
+subdirectory. A few example mini-notebooks are already provided there.
+
+The Jupyter notebook server starts automatically. It can be managed
+(start/stop/restart) in a console session (see below) via
+
+   sudo service notebook (start | stop | restart)
 
 
+### Console
+
+In addition to creating, editing and executing Notebooks via the Web interface,
+there may also be the need to operate through a console session. There are 
+three ways to obtain console access to the VM:
+
+1. By using the console option in the Notebook Web interface (use the
+   right menu: *New* -> *Terminal*)
+
+2. By opening a text terminal on the host machine, changing to the directory
+   where the Vagrantfile is located and executing `vagrant ssh`
+
+3. By using a standard SSH application (`ssh` in Linux, in Windows e.g. 
+   [PuTTY](http://www.putty.org/). Connect to the following destination:
+    - Host: 127.0.0.1 (localhost)
+    - Port: 2222
+    - User: vagrant
+    - Password: vagrant
+
+In the two first cases the user logged in the console session will be `vmuser`
+(or, if that was changed in the Vagrantfile, the username defined there). In
+the last case it will be `vagrant`. 
+* The `vmuser` user is intended to execute processing tasks (and is the one 
+  running the Jupyter Notebook server), including Spark command-line 
+  applications such as `spark-submit`, `spark-shell`, `pyspark`, etc
+* The `vagrant` user is intended for administrative tasks (and is the owner of 
+  all the installed Python & Spark stack).
+
+Both users have `sudo` permissions, in case it is needed for system 
+administration tasks.
+
+
+### Spark administration
+
+Inside the VM (i.e. as seen from a console session), Spark is installed in
+`/opt/spark/current/`. The two important Spark config files are:
+* `/opt/spark/current/conf/spark-env.sh`: environment variables used by the
+  Spark deployment inside the VM
+* `/opt/spark/current/conf/spark-defaults.conf`: configuration properties
+  used by Spark
+
+The Spark kernel in Jupyter Notebook launches with the config defined by those
+two files. If those are changed, running Spark kernels will need to be
+restarted to make them read the new values.
+
+Command-line spark processes launched from a console session (through
+`spark-submit`, `pyspark`, etc) use also the same properties, unless overriden 
+by command-line arguments.

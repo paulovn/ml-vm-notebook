@@ -14,7 +14,7 @@ vm_memory = '2048'
 # Username that will run all spark processes.
 # If remote (yarn) mode is ever going to be used, it is advisable to change it
 # to a recognizable unique name, so that it is easily identified in the logs
-spark_username = 'sparkvmuser'
+vm_username = 'vmuser'
 
 # The virtual machine exports the port where the notebook process by forwarding
 # it to this port of the local machine
@@ -27,23 +27,23 @@ port_ipython = 8008
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
 # It can be changed at runtime by executing inside the virtual machine, as 
-# root user, "service spark-notebook set-mode <mode>"
+# root user, "service notebook set-mode <mode>"
 spark_mode = 'local'
 
 # -----------------
 # These 3 options are used only when running non-local tasks. They define
 # the access points for the remote cluster.
 # They can also be modified at runtime by executing inside the virtual
-# machine: "sudo service spark-notebook set-addr <A> <B> <C>"
+# machine: "sudo service notebook set-addr <A> <B> <C>"
 # **IMPORTANT**: If remote mode is to be used, the virtual machine needs
 # a network interface in bridge mode. In that case Uncomment the relevant
 # lines in the networking section below
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn 
 # mode, or the Spark master in standalone mode)
-spark_master = 'samson01.hi.inet'
+spark_master = 'samson02.hi.inet'
 # [B] The host running the HDFS namenode
-spark_namenode = spark_master
+spark_namenode = 'samson01.hi.inet'
 # [C] The location of the Spark History Server
 spark_history_server = 'samson03.hi.inet:18080'
 # ------------------
@@ -54,7 +54,7 @@ spark_history_server = 'samson03.hi.inet:18080'
 # Don't change these
 
 # The version of Spark we are using
-spark_version = '1.6.0'
+spark_version = '1.6.1'
 spark_name = 'spark-' + spark_version + '-bin-hadoop2.6'
 
 # The place where Spark is deployed inside the local machine
@@ -64,22 +64,34 @@ spark_basedir = '/opt/spark'
 # --------------------------------------------------------------------------
 # Vagrant configuration
 
+# Some variables that affect provisioning
 vagrant_command = ARGV[0]
+provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
+        (vagrant_command == 'provision' && ARGV.include?('10.nbc'))
+provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('11.ai'))
+
 
 # The "2" in Vagrant.configure sets the configuration version
 Vagrant.configure(2) do |config|
 
+  # This is to avoid Vagrant inserting a new SSH key, insetad of the 
+  # default one (perhaps because the box will be later packaged)
+  #config.ssh.insert_key = false
+
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
-      config.ssh.username = spark_username
+      config.ssh.username = vm_username
   end
+  #config.ssh.username = "vagrant"
+
 
   config.vm.define "vm-spark-nb64" do |vgrspark|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 0.9.9"
+    vgrspark.vm.box_version = "= 0.9.11"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
@@ -100,11 +112,11 @@ Vagrant.configure(2) do |config|
     vgrspark.vm.synced_folder "vmfiles", "/vagrant", 
       mount_options: ["dmode=775","fmode=664"],
       disabled: false
-    #owner: spark_username
+    #owner: vm_username
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrspark.vm.hostname = "vm-sparknotebook"
+    vgrspark.vm.hostname = "vm-ipnb-spark"
     vgrspark.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrspark.vm.hostname.to_s
@@ -168,14 +180,14 @@ Vagrant.configure(2) do |config|
     vgrspark.vm.provision "01.nbuser",
     type: "shell", 
     privileged: true,
-    args: [ spark_username ],
+    args: [ vm_username ],
     inline: <<-SHELL
       id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
       su -l "$1" <<-EOF
 mkdir bin tmp .ssh 2>/dev/null
 chmod 700 .ssh
 rm -f bin/{python2.7,pip,ipython}
-ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython} /home/$1/bin
+ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython,jupyter} /home/$1/bin
 test -d .jupyter || mkdir .jupyter
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
 echo "export PYSPARK_DRIVER_PYTHON=ipython" >> .bash_profile
@@ -192,7 +204,7 @@ EOF
 #    type: "shell",
 #    privileged: true,
 #    keep_color: true,
-#    args: [ spark_username ],
+#    args: [ vm_username ],
 #    inline: <<-SHELL
 #umount /vagrant
 #mount -t vboxsf -o uid=$(id -u $1),gid=$(id -g $1) vagrant /vagrant
@@ -200,14 +212,16 @@ EOF
 
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
+    # and install all kernels: Pyspark, Toree (Scala), IRKernel, and extensions
     # Prepared for IPython 4 (so that we configure as a Jupyter app)
-    vgrspark.vm.provision "03.nbprofile", 
+    vgrspark.vm.provision "03.nbkernels",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ spark_username, port_ipython, spark_basedir ],
+    args: [ vm_username, port_ipython, spark_basedir ],
     inline: <<-SHELL
-     # Create the Jupyter config
+     # --------------------- Create the Jupyter config
+     echo "Creating Jupyter config"
      su -l "$1" -c "cat <<-EOF > /home/$1/.jupyter/jupyter_notebook_config.py
 c = get_config()
 # define server
@@ -220,46 +234,63 @@ c.NotebookApp.notebook_dir = u'/home/$1/IPNB'
 c.IPKernelApp.matplotlib = 'inline'
 EOF
 "
-     # Install the IRKernel
+     KDIR=/home/$1/.local/share/jupyter/kernels
+
+     # --------------------- Install the Pyspark kernel
+     echo "Installing Pyspark kernel"
+     KERNEL_NAME=pyspark
+     su -l "$1" <<-EOF
+mkdir -p "${KDIR}/${KERNEL_NAME}"
+cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
+{
+    "display_name": "Pyspark (Py 2)",
+    "language_info": { "name": "python",
+                       "codemirror_mode": { "name": "ipython", "version": 2 }
+                     },
+    "argv": [
+	"/opt/ipnb/bin/ext/pyspark-ipnb",
+	"-m", "ipykernel",
+	"-f", "{connection_file}"
+    ],
+    "env": {
+        "SPARK_HOME": "/opt/spark/current"
+    }
+}
+KERNEL
+# Copy Pyspark kernel logo
+cp -p $3/kernel-icons/pyspark-icon-64x64.png $KDIR/$KERNEL_NAME/logo-64x64.png
+cp -p $3/kernel-icons/pyspark-icon-32x32.png $KDIR/$KERNEL_NAME/logo-32x32.png
+EOF
+
+     # --------------------- Install the Toree Spark kernel
+     echo "Installing Toree (Scala) kernel ..."
+     KERNEL_NAME='scala-spark'
+     su -l "$1" <<-EOF
+/opt/ipnb/bin/ext/jupyter toree install --user --spark_home="$3/current" \
+   --kernel_name="$KERNEL_NAME" \
+   --spark_opts='--master=local[2] \
+      --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M \
+      --driver-java-options=-Dlog4j.logLevel=info'
+sed -i 's/"scala-spark"/"Spark (Scala 2.10)"/' "${KDIR}/${KERNEL_NAME}/kernel.json"
+# Copy Scala kernel logos
+cp -p $3/kernel-icons/scala-spark-icon-64x64.png $KDIR/$KERNEL_NAME/logo-64x64.png
+cp -p $3/kernel-icons/scala-spark-icon-32x32.png $KDIR/$KERNEL_NAME/logo-32x32.png
+EOF
+
+     # --------------------- Install the IRkernel
+     echo "Installing IRkernel ..."
      su -l "$1" <<-EOF
 PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
 EOF
 
-     # Install the Scala Spark kernel
-     KDIR=/home/$1/.local/share/jupyter/kernels/spark
+     # --------------------- Install the notebook extensions
+     echo "Installing notebook extensions"
      su -l "$1" <<-EOF
-mkdir -p $KDIR
-cat <<-KERNEL >$KDIR/kernel.json
-{
-    "display_name": "Scala 2.10",
-    "language_info": { "name": "scala" },
-    "argv": [
-        "$3/spark-kernel/bin/spark-kernel",
-        "--profile",
-        "{connection_file}"
-    ],
-    "codemirror_mode": "scala",
-    "env": {
-        "SPARK_OPTS": "--master=local[2] --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M --driver-java-options=-Dlog4j.logLevel=info",
-        "MAX_INTERPRETER_THREADS": "16",
-        "CAPTURE_STANDARD_OUT": "true",
-        "CAPTURE_STANDARD_ERR": "true",
-        "SEND_EMPTY_OUTPUT": "false",
-        "SPARK_HOME": "$3/current",
-        "PYTHONPATH": "$3/current/python/pyspark:$3/current/python/lib/py4j-0.8.2.1-src.zip"
-     }
-}
-KERNEL
-# Copy logo
-cp -p $3/spark-kernel/scala-spark-icon-64x64.png $KDIR/logo-64x64.png
+python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
+     ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python2.7/site-packages
 EOF
 
-     # Install the notebook extensions
-     su -l "$1" <<-EOF
-python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True }})'
-EOF
-
-     # Put the custom icon in place
+     # --------------------- Put the custom Jupyter icon in place
      cd /opt/ipnb/lib/python2.7/site-packages/notebook/static/base/images
      mv favicon.ico favicon-orig.ico
      ln -s favicon-custom.ico favicon.ico
@@ -267,36 +298,36 @@ EOF
     SHELL
 
     # .........................................
-    # Install the Spark notebook startup script & configure it
+    # Install the Notebook startup script & configure it
     # Configure Spark execution mode & remote access if defined
     vgrspark.vm.provision "04.nbconfig",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ spark_basedir, spark_username, spark_mode, 
+    args: [ spark_basedir, vm_username, spark_mode,
             spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
-     # Link the spark startup script, and set it up for starting
-     rm -f /etc/init.d/jupyter-notebook
+     # Link the IPython notebook startup script, and set it up for starting
+     rm -f /etc/init.d/notebook
      chmod 775 /opt/ipnb/bin/ext/jupyter-notebook-mgr
-     ln -s /opt/ipnb/bin/ext/jupyter-notebook-mgr /etc/init.d/jupyter-notebook
-     chkconfig --add jupyter-notebook
+     ln -s /opt/ipnb/bin/ext/jupyter-notebook-mgr /etc/init.d/notebook
+     chkconfig --add notebook
 
-     # Create the config for spark notebook
+     # Create the config for IPython notebook
      cat <<-EOF > /etc/sysconfig/jupyter-notebook
-NOTEBOOK_USER=$2
-NOTEBOOK_SCRIPT=/opt/ipnb/bin/ext/jupyter-notebook
+NOTEBOOK_USER="$2"
+NOTEBOOK_SCRIPT="/opt/ipnb/bin/ext/jupyter-notebook"
 EOF
 
      # Configure remote addresses
      if [ "$4" ]; then
-       service spark-notebook set-addr yarn "$4" "$5" "$6"
-       service spark-notebook set-addr standalone "$4" "$5" "$6"
+       service notebook set-addr yarn "$4" "$5" "$6"
+       service notebook set-addr standalone "$4" "$5" "$6"
      fi 
 
      # Set the name of the initially active config
      echo "Configuring Spark mode as: $3"
-     service spark-notebook set-mode "$3"
+     service notebook set-mode "$3"
   SHELL
 
 
@@ -315,13 +346,14 @@ EOF
 
     # .........................................
     # Install the necessary components for nbconvert to work.
-    # Do it only if the environment variable PROVISION_NBCONVERT has a 1 value
-    if (ENV['PROVISION_NBCONVERT'] == '1')
-      vgrspark.vm.provision "05.nbconvert",
-        type: "shell",
-        run: "never",
-        keep_color: true,
-        inline: <<-SHELL
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_NBCONVERT when creating or by --provision-with 10.nbc) 
+    if (provision_run_nbc)
+      vgrspark.vm.provision "10.nbc",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
           echo "Installing nbconvert requisites"
           sudo yum install -y pandoc inkscape
           pip install pandoc
@@ -330,10 +362,37 @@ EOF
           cd $DIR
           for p in collectbox adjustbox; do
             wget --no-verbose http://mirrors.ctan.org/install/macros/latex/contrib/$p.tds.zip
-          unzip $p.tds.zip
+            unzip $p.tds.zip
           done
           texhash
-        SHELL
+      SHELL
+    end
+
+    # .........................................
+    # Install the additional packages for the AI course
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_AI when creating or by --provision-with 11.ai) 
+    if (provision_run_ai)
+      vgrspark.vm.provision "11.ai",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Installing packages for AI course"
+        yum -y install python27-tkinter
+        su -l "vagrant" <<-EOF
+         pip install nltk graphviz
+         pip install https://github.com/paulovn/sparql-kernel/archive/master.zip
+         pip install https://github.com/paulovn/aiml-chatbot-kernel/archive/master.zip
+EOF
+        su -l "$1" <<-EOF
+         echo "Installing AIML-BOT & SPARQL kernels"
+         jupyter aimlbotkernel install --user
+         jupyter sparqlkernel install --user
+EOF
+
+      SHELL
     end
 
 
@@ -343,15 +402,15 @@ EOF
     # the VM boot sequence the startup script is executed before vagrant has 
     # mounted the shared folder, and hence it fails. 
     # Running it as a provisioning makes it run *after* vagrant mounts, so 
-    #  this way it works.
+    # this way it works.
     # [An alternative would be to force mounting on startup, by adding the
     # vboxsf mount point to /etc/fstab during provisioning]
-    vgrspark.vm.provision "10.nbstart", 
+    vgrspark.vm.provision "50.nbstart", 
       type: "shell", 
       run: "always",
       privileged: true,
       keep_color: true,    
-      inline: "/etc/init.d/jupyter-notebook start"
+      inline: "/etc/init.d/notebook start"
 
 
   end # config.vm.define
