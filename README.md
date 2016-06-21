@@ -37,7 +37,7 @@ it will make it work in future executions (but the saved notebook will *not*
 work in a previous version of the VM).
 
 
-## Installing
+## Installation
 
 ### Requirements
 
@@ -52,9 +52,10 @@ work in a previous version of the VM).
 
 1. Copy the Vagrantfile + examples into the computer, either by cloning the 
    repository or by downloading and extracting all files in the packaged
-   [ZIP file](archive/develop.zip). Make sure to use a disk or partition with 
-   the mentioned 10 GB of free space. Also, in Windows it might be advisable to
-   avoid using a folder name with spaces (sometimes it causes problems).
+   [ZIP file](/paulovn/ml-vm-notebook/archive/develop.zip). Make sure to use a 
+   disk or partition with the mentioned 10 GB of free space. Also, in Windows 
+   it might be advisable to avoid using a folder name with spaces (since
+   sometimes it causes problems).
 
 2. If desired, open the Vagrantfile with a text editor and customize the 
    options at the top of the file; see the relevant comments. 
