@@ -17,22 +17,23 @@ The repository also contains a number of example notebooks.
 The contents of the VM are:
 
 * Apache Spark 1.6.1
-* Python 2.7.5 from the Software Collections
-* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn, theano+keras) plus IPython 4 + Jupyter notebook
-* R 3.2.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret)
+* Python 2.7.8 from the Software Collections
+* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn, theano+keras) plus IPython 4 + Jupyter notebook
+* R 3.3.0 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret)
 * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
-* Two additional Spark external libraries:
+* Three additional Spark external libraries:
   - The Kafka Spark Streaming artifact
-  - The [Spark CSV] (https://github.com/databricks/spark-csv) library
+  - The [Spark CSV](https://github.com/databricks/spark-csv) library
+  - The [GraphFrames](http://graphframes.github.io/) Spark package.
 
 **Important**: in this installation the default Python kernel for notebooks 
 is **not** Spark-aware. Hence Python Notebooks running Spark tasks that were 
 created with previous versions of this VM will not work initially. 
 They can be made to work by changing its kernel (use the option in the menubar)
 to the "Pyspark" kernel. Once done, it is stored in the notebook, so saving
-it will make it work in the future (but the saved notebook will *not*
+it will make it work in future executions (but the saved notebook will *not*
 work in a previous version of the VM).
 
 
@@ -79,23 +80,25 @@ so there should be no problem.
 
 ## Operation
 
-Once installation finishes, a notebook server will be running on [`http://localhost:8008`](http://localhost:8008). Use a Web browser to access it. 
+Once installation finishes, a notebook server will be running on
+[`http://localhost:8008`](http://localhost:8008). Use a Web browser to access
+it. By default it is also accessible externally, i.e. other machines in the
+network can also connect to it (unless the host computer has a firewall that
+blocks port 8008).
 
-By default it is also accessible externally, i.e. other machines in the network
-can also connect to it (unless the host computer has a firewall that blocks 
-port 8008).
-
-The `vmfiles` subfolder in the host is configured to be mounted inside the VM 
-as `/vagrant`, so anything in that subfolder can be accessed within the VM.
-
-Furthermore, the notebook server is configured to browse the files in the 
-`vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
-subdirectory. A few example mini-notebooks are already provided there.
+The additional files in the ZIP create a layout for sharing content between
+the host and the VM:
+ * The `vmfiles` subfolder in the host is configured to be mounted inside the
+   VM as the `/vagrant` directory, so anything in that subfolder can be 
+   accessed within the VM.
+ * Furthermore, the notebook server is configured to browse the files in the 
+   `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
+   subdirectory. A few example mini-notebooks are already provided there.
 
 The Jupyter notebook server starts automatically. It can be managed
-(start/stop/restart) in a console session (see below) via
+(start/stop/restart) in a console session (see below) via:
 
-   sudo service notebook (start | stop | restart)
+    sudo service notebook (start | stop | restart)
 
 
 ### Console
@@ -140,7 +143,7 @@ Inside the VM (i.e. as seen from a console session), Spark is installed in
   used by Spark
 
 The Spark kernel in Jupyter Notebook launches with the config defined by those
-two files. If those are changed, running Spark kernels will need to be
+two files. If those are changed, Spark kernels currently running will need to be
 restarted to make them read the new values.
 
 Command-line spark processes launched from a console session (through
