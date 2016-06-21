@@ -62,15 +62,21 @@ spark_basedir = '/opt/spark'
 
 
 # --------------------------------------------------------------------------
-# Vagrant configuration
+# Some variables that affect Vagrant execution
 
-# Some variables that affect provisioning
+# Check the command requested -- if ssh we'll change the login user
 vagrant_command = ARGV[0]
+
+# Conditionally activate some provision sections
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
         (vagrant_command == 'provision' && ARGV.include?('10.nbc'))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('11.ai'))
+#provision_run_ai = true
 
+
+# --------------------------------------------------------------------------
+# Vagrant configuration
 
 # The "2" in Vagrant.configure sets the configuration version
 Vagrant.configure(2) do |config|
@@ -91,7 +97,7 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 0.9.11"
+    vgrspark.vm.box_version = "= 0.9.12"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
@@ -264,17 +270,18 @@ EOF
 
      # --------------------- Install the Toree Spark kernel
      echo "Installing Toree (Scala) kernel ..."
-     KERNEL_NAME='scala-spark'
+     KERNEL_NAME='spark'
+     KERNEL_DIR="${KDIR}/${KERNEL_NAME}_scala"
      su -l "$1" <<-EOF
 /opt/ipnb/bin/ext/jupyter toree install --user --spark_home="$3/current" \
    --kernel_name="$KERNEL_NAME" \
    --spark_opts='--master=local[2] \
       --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M \
       --driver-java-options=-Dlog4j.logLevel=info'
-sed -i 's/"scala-spark"/"Spark (Scala 2.10)"/' "${KDIR}/${KERNEL_NAME}/kernel.json"
+sed -i 's/"spark - Scala"/"Spark (Scala 2.10)"/' "${KERNEL_DIR}/kernel.json"
 # Copy Scala kernel logos
-cp -p $3/kernel-icons/scala-spark-icon-64x64.png $KDIR/$KERNEL_NAME/logo-64x64.png
-cp -p $3/kernel-icons/scala-spark-icon-32x32.png $KDIR/$KERNEL_NAME/logo-32x32.png
+cp -p $3/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
+cp -p $3/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
 EOF
 
      # --------------------- Install the IRkernel
@@ -389,7 +396,7 @@ EOF
         su -l "$1" <<-EOF
          echo "Installing AIML-BOT & SPARQL kernels"
          jupyter aimlbotkernel install --user
-         jupyter sparqlkernel install --user
+         jupyter sparqlkernel install --user --logdir /var/log/ipnb
 EOF
 
       SHELL
