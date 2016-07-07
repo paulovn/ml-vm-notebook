@@ -18,8 +18,9 @@ The contents of the VM are:
 
 * Apache Spark 1.6.1
 * Python 2.7.8 from the Software Collections
-* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, gensim, networkx, scikit-learn, theano+keras) plus IPython 4 + Jupyter notebook
-* R 3.3.0 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret)
+* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy,
+* matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
+* R 3.3.0 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies)
 * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
@@ -115,7 +116,7 @@ three ways to obtain console access to the VM:
    where the Vagrantfile is located and executing `vagrant ssh`
 
 3. By using a standard SSH application (`ssh` in Linux, in Windows e.g. 
-   [PuTTY](http://www.putty.org/). Connect to the following destination:
+   [PuTTY](http://www.putty.org/)). Connect to the following destination:
     - Host: 127.0.0.1 (localhost)
     - Port: 2222
     - User: vagrant
@@ -126,7 +127,9 @@ In the two first cases the user logged in the console session will be `vmuser`
 the last case it will be `vagrant`. 
 * The `vmuser` user is intended to execute processing tasks (and is the one 
   running the Jupyter Notebook server), including Spark command-line 
-  applications such as `spark-submit`, `spark-shell`, `pyspark`, etc
+  applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as
+  well as Python commands (use `ipython` or `python2.7`, not the bare `python`
+  command, which executes the base OS Python 2.6).
 * The `vagrant` user is intended for administrative tasks (and is the owner of 
   all the installed Python & Spark stack).
 
@@ -136,17 +139,17 @@ administration tasks.
 
 ### Spark administration
 
-Inside the VM (i.e. as seen from a console session), Spark is installed in
-`/opt/spark/current/`. The two important Spark config files are:
+Inside the VM (i.e. as seen from within a console session), Spark is installed 
+in `/opt/spark/current/`. The two important Spark config files are:
 * `/opt/spark/current/conf/spark-env.sh`: environment variables used by the
   Spark deployment inside the VM
 * `/opt/spark/current/conf/spark-defaults.conf`: configuration properties
   used by Spark
 
-The Spark kernel in Jupyter Notebook launches with the config defined by those
-two files. If those are changed, Spark kernels currently running will need to be
-restarted to make them read the new values.
+The Spark kernel in Jupyter Notebook launches with the configuration defined by 
+those two files. If they are changed, Spark kernels currently running will 
+need to be restarted to make them read the new values.
 
 Command-line spark processes launched from a console session (through
-`spark-submit`, `pyspark`, etc) use also the same properties, unless overriden 
-by command-line arguments.
+`spark-submit`, `pyspark`, etc) use also the same configuration, unless 
+overriden by command-line arguments.
