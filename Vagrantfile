@@ -70,10 +70,12 @@ spark_basedir = '/opt/spark'
 vagrant_command = ARGV[0]
 
 # Conditionally activate some provision sections
+provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('20.rstudio'))
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && ARGV.include?('10.nbc'))
+        (vagrant_command == 'provision' && ARGV.include?('21.nbc'))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('11.ai'))
+        (vagrant_command == 'provision' && ARGV.include?('22.ai'))
 #provision_run_ai = true
 
 
@@ -150,6 +152,9 @@ Vagrant.configure(2) do |config|
     # Spark driver UI for the 2nd application (e.g. a command-line job)
     vgrspark.vm.network :forwarded_port, host: 4041, guest: 4041,
     auto_correct: true
+    # RStudio server
+    # =====> uncomment if using RStudio
+    # vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # In case we want to fix Spark ports
     #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
@@ -161,15 +166,15 @@ Vagrant.configure(2) do |config|
     # ---- bridged interface ----
     # Declare a public network
     # This enables the machine to be connected from outside, which is a
-    # must for Spark [it needs SPARK_LOCAL_IP to be set to the outside-visible
-    # interface].
-    # --> Uncomment the following two lines to enable bridge mode:
+    # must for a Spark driver [it needs SPARK_LOCAL_IP to be set to 
+    # the outside-visible interface].
+    # =====> Uncomment the following two lines to enable bridge mode:
     #vgrspark.vm.network "public_network",
     #type: "dhcp"
 
-    # --> if the host has more than one interface, we can set which one to use
+    # ===> if the host has more than one interface, we can set which one to use
     #bridge: "wlan0"
-    # --> we can also set the MAC address we will send to the DHCP server
+    # ===> we can also set the MAC address we will send to the DHCP server
     #:mac => "08002710A7ED"
 
 
@@ -207,9 +212,9 @@ EOF
       chown $1.$1 /home/$1/.ssh/authorized_keys
     SHELL
 
-    # Mount the shared folder as the new created user, so that it can write
-    # ---> no, instead we have added the user to the vagrant group and
-    # mounted the shared folder with group permissions
+    # Mount the shared folder with the new created user, so that it can write
+    # ---> don't, instead we add the user to the vagrant group and mount the 
+    #      shared folder with group permissions
 #    vgrspark.vm.provision "02.mount",
 #    type: "shell",
 #    privileged: true,
@@ -354,13 +359,57 @@ EOF
       ln -s /vagrant/warehouse /user/hive/warehouse
     SHELL
 
+    # .........................................
+    # Install the neuralnet R package
+    # vgrspark.vm.provision "10.r.neuralnet",
+    # type: "shell",
+    # keep_color: true,
+    # privileged: true,
+    # inline: <<-SHELL
+    #  echo "Installing R packages"
+    #  for pkg in '"neuralnet"'
+    #  do
+    #      echo -e "\nInstalling R packages: $pkg"
+    #      Rscript -e "install.packages(c($pkg),dependencies=TRUE,repos=c('http://ftp.cixug.es/CRAN/','http://cran.es.r-project.org/'),quiet=FALSE)"
+    #  done
+    # SHELL
+
+    # .........................................
+    # Install RStudio server
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_RSTUDIO when creating or by --provision-with 20.rstudio) 
+    # *** Don't forget to also uncomment forwarding for port 8787!
+    if (provision_run_rs)
+      vgrspark.vm.provision "20.rstudio",
+      type: "shell",
+      keep_color: true,
+      privileged: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Downloading & installing RStudio Server"
+        # Download & install the RPM for RStudio server
+        PKG=rstudio-server-rhel-0.99.902-x86_64.rpm
+        wget --no-verbose https://download2.rstudio.org/$PKG
+        sudo yum install -y --nogpgcheck $PKG
+        rm $PKG
+        # Define the directory for the user library
+        echo "r-libs-user=~/.Rlibrary" >> /etc/rstudio/rsession.conf
+        # Create a link to the host-mounted R subdirectory
+        sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
+        # Set the password for the user, so that it can log in in RStudio
+        echo "$1" | passwd --stdin "$1"
+        # Send message
+        echo "RStudio Server should be accessed at http://localhost:8787"
+        echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
+      SHELL
+    end
 
     # .........................................
     # Install the necessary components for nbconvert to work.
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_NBCONVERT when creating or by --provision-with 10.nbc) 
+    # PROVISION_NBC when creating or by --provision-with 21.nbc) 
     if (provision_run_nbc)
-      vgrspark.vm.provision "10.nbc",
+      vgrspark.vm.provision "21.nbc",
       type: "shell",
       privileged: false,
       keep_color: true,
@@ -382,9 +431,9 @@ EOF
     # .........................................
     # Install the additional packages for the AI course
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_AI when creating or by --provision-with 11.ai) 
+    # PROVISION_AI when creating or by --provision-with 22.ai) 
     if (provision_run_ai)
-      vgrspark.vm.provision "11.ai",
+      vgrspark.vm.provision "22.ai",
       type: "shell",
       privileged: true,
       keep_color: true,
@@ -409,7 +458,7 @@ EOF
 
     # .........................................
     # Start Jupyter Notebook
-    # Note: we make this one to run every time the machine boots, since during 
+    # Note: this one we run it every time the machine boots, since during 
     # the VM boot sequence the startup script is executed before vagrant has 
     # mounted the shared folder, and hence it fails. 
     # Running it as a provisioning makes it run *after* vagrant mounts, so 

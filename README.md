@@ -136,6 +136,12 @@ the last case it will be `vagrant`.
 Both users have `sudo` permissions, in case it is needed for system 
 administration tasks.
 
+Once we have a console session, it can also be used to edit the files inside 
+the VM. For this the  VM includes the standard `vi` and `emacs` editors (for 
+text consoles), as well as `nano`, a lightweight editor. Note that files in 
+the `/vagrant` directory can be edited directly in the host, since it is 
+a mounted folder.
+
 
 ### Spark administration
 
@@ -153,3 +159,14 @@ need to be restarted to make them read the new values.
 Command-line spark processes launched from a console session (through
 `spark-submit`, `pyspark`, etc) use also the same configuration, unless 
 overriden by command-line arguments.
+
+
+### Security
+
+The VM has not been secured. The base box comes with the default Vagrant key, 
+and this is overwritten with a private key when launched for the first time, 
+so ssh connections with certificate are more or less secure. But there are a 
+number of security holes, among them:
+  * Both the `root` and `vagrant` users use `vagrant` as password.
+  * Jupyter notebook listens on port 8008 with no restrictions (so that
+    if the host computer has no firewall, it can be accessed from anywhere)
