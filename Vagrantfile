@@ -10,6 +10,8 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
+# Number of CPU cores assigned to the VM
+vm_cpus = '1'
 
 # Username that will run all spark processes.
 # If remote (yarn) mode is ever going to be used, it is advisable to change it
@@ -128,6 +130,8 @@ Vagrant.configure(2) do |config|
       vb.name = vgrspark.vm.hostname.to_s
       # Customize the amount of memory on the VM
       vb.memory = vm_memory
+      # Set the number of CPUs
+      vb.cpus = vm_cpus
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
     end
