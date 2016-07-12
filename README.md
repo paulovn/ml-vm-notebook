@@ -177,4 +177,4 @@ number of security holes, among them:
 This version of the Vagrantfile installs a couple of additional packages onto the base box:
  * The `neuralnet` R package
  * RStudio server, forwarding its port (8787) to the host machine. Therefore, 
-   to access the RStudio interface, go to http://localhost:8787
+   to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787)
