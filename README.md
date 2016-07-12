@@ -161,6 +161,14 @@ Command-line spark processes launched from a console session (through
 overriden by command-line arguments.
 
 
+### RStudio
+
+This version of the Vagrantfile installs a couple of additional packages onto the base box:
+ * The `neuralnet` R package
+ * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. Therefore, 
+   to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787). The credentials to use are: user `vmuser`, password `vmuser`
+
+
 ### Security
 
 The VM has not been secured. The base box comes with the default Vagrant key, 
@@ -168,13 +176,8 @@ and this is overwritten with a private key when launched for the first time,
 so ssh connections with certificate are more or less secure. But there are a 
 number of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
+  * The `vmuser` user has `vmuser` as password
   * Jupyter notebook listens on port 8008 with no restrictions (so that
     if the host computer has no firewall, it can be accessed from anywhere)
 
 
-### RStudio
-
-This version of the Vagrantfile installs a couple of additional packages onto the base box:
- * The `neuralnet` R package
- * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. Therefore, 
-   to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787)
