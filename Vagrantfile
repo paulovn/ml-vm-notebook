@@ -55,10 +55,6 @@ spark_history_server = 'samson03.hi.inet:18080'
 # Variables defining the Spark installation in the base box. 
 # Don't change these
 
-# The version of Spark we are using
-spark_version = '1.6.1'
-spark_name = 'spark-' + spark_version + '-bin-hadoop2.6'
-
 # The place where Spark is deployed inside the local machine
 spark_basedir = '/opt/spark'
 
@@ -144,14 +140,15 @@ Vagrant.configure(2) do |config|
     # ---- NAT interface ----
     # NAT port forwarding
     vgrspark.vm.network :forwarded_port, 
-    guest: port_ipython, 
-    host: port_ipython                  # Notebook UI
+     guest: port_ipython,
+     host: port_ipython                  # Notebook UI
     # Spark driver UI
     vgrspark.vm.network :forwarded_port, host: 4040, guest: 4040, 
-    auto_correct: true
+     auto_correct: true
     # Spark driver UI for the 2nd application (e.g. a command-line job)
     vgrspark.vm.network :forwarded_port, host: 4041, guest: 4041,
-    auto_correct: true
+     auto_correct: true
+
     # RStudio server
     # =====> uncomment if using RStudio
     # vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
@@ -206,6 +203,7 @@ ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython,jupyter} /home/$1/bin
 test -d .jupyter || mkdir .jupyter
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
 echo "export PYSPARK_DRIVER_PYTHON=ipython" >> .bash_profile
+echo "export THEANORC=/etc/theanorc:~/.theanorc" >> .bashrc
 EOF
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
