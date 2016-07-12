@@ -72,8 +72,9 @@ provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
         (vagrant_command == 'provision' && ARGV.include?('21.nbc'))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('22.ai'))
-#provision_run_ai = true
 
+#provision_run_ai = true
+provision_run_rs = true
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
@@ -151,7 +152,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> uncomment if using RStudio
-    # vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
+    vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # In case we want to fix Spark ports
     #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
@@ -359,18 +360,18 @@ EOF
 
     # .........................................
     # Install the neuralnet R package
-    # vgrspark.vm.provision "10.r.neuralnet",
-    # type: "shell",
-    # keep_color: true,
-    # privileged: true,
-    # inline: <<-SHELL
-    #  echo "Installing R packages"
-    #  for pkg in '"neuralnet"'
-    #  do
-    #      echo -e "\nInstalling R packages: $pkg"
-    #      Rscript -e "install.packages(c($pkg),dependencies=TRUE,repos=c('http://ftp.cixug.es/CRAN/','http://cran.es.r-project.org/'),quiet=FALSE)"
-    #  done
-    # SHELL
+    vgrspark.vm.provision "10.r.neuralnet",
+    type: "shell",
+    keep_color: true,
+    privileged: true,
+    inline: <<-SHELL
+     echo "Installing R packages"
+     for pkg in '"neuralnet"'
+     do
+         echo -e "\nInstalling R packages: $pkg"
+         Rscript -e "install.packages(c($pkg),dependencies=TRUE,repos=c('http://ftp.cixug.es/CRAN/','http://cran.es.r-project.org/'),quiet=FALSE)"
+     done
+    SHELL
 
     # .........................................
     # Install RStudio server

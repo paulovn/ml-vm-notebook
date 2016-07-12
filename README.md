@@ -170,3 +170,11 @@ number of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
   * Jupyter notebook listens on port 8008 with no restrictions (so that
     if the host computer has no firewall, it can be accessed from anywhere)
+
+
+### RStudio
+
+This version of the Vagrantfile installs a couple of additional packages onto the base box:
+ * The `neuralnet` R package
+ * RStudio server, forwarding its port (8787) to the host machine. Therefore, 
+   to access the RStudio interface, go to http://localhost:8787
