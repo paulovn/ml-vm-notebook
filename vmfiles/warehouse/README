@@ -1,8 +1,0 @@
-This folder contains the tables saved as system tables in Spark SQL. Its contents
-should not be modified outside Spark.
-
-Since it is on the Vagrant shared folder, it will be preserved accross VM 
-reinstallations.
-
-Access to a table requires the corresponding metastore_db folder (typically created 
-in the Notebook folder that created the table).
