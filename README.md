@@ -160,6 +160,18 @@ Command-line spark processes launched from a console session (through
 `spark-submit`, `pyspark`, etc) use also the same configuration, unless 
 overriden by command-line arguments.
 
+An additional configuration file is `/opt/spark/current/conf/hive-site.xml`. 
+This one is used by Spark SQL to determine the behaviour related to Hive tables.
+In particular, two important bits defined there are the location of the 
+metastore DB (the VM uses Derby as a local metastore) and the place where 
+system tables will be written. Both places are configured to subfolders of 
+the `./vmfiles/hive` directory in the host (mounted in the VM).
+
+Note that due to Derby being a single-process DB, only one Spark SQL process 
+may be active at any given moment (since it would collide over the use of the 
+metastore). This means that there should be only one active Notebook (or Spark 
+shell) making use of an sqlContext.
+ 
 
 ### Security
 
