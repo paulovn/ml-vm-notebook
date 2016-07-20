@@ -1,12 +1,12 @@
-This folder contains two subdirectories, used by Spark SQL processes running
-in the virtual machine:
+This folder may contain two subdirectories, created & used by Spark SQL 
+processes running in the virtual machine:
   * the "metastore_db" subdirectory contains the Derby metastore used by Spark
     SQL to locate tables
   * the "warehouse" subdirectory contains the tables that Spark SQL saves as 
     system tables.
 
 Since the metastore & tables are on the Vagrant shared folder, they will be 
-preserved accross VM reinstallations. The folder contents should not be 
+preserved accross VM reinstallations. Folder contents should not be 
 modified outside Spark.
 
 Note that Spark uses this directory because it has been configured that way by
