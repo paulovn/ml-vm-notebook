@@ -102,6 +102,11 @@ The Jupyter notebook server starts automatically. It can be managed
 
     sudo service notebook (start | stop | restart)
 
+For diagnostics, in addition to the messages appearing directly on notebooks, 
+logfiles are generated in `/var/log/ipnb` inside the VM:
+ * `/var/log/ipnb/jupyter-notebook.out` contains log messages from the Jupyter 
+   server
+ * `/var/log/ipnb/spark.log` contains log messages from Spark
 
 ### Console
 
