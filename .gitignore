@@ -2,4 +2,9 @@
 .ipynb_checkpoints
 
 *~
+*.log
+metastore_db
 
+vmfiles/warehouse/*
+vmfiles/R/*
+vmfiles/Soft
