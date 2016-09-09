@@ -27,7 +27,7 @@ The contents of the VM are:
  * Two additional Spark external libraries (plus configuration prepared to use the [GraphFrames](http://graphframes.github.io/) package)
    - The Kafka Spark Streaming artifact
    - The [Spark CSV](https://github.com/databricks/spark-csv) library
- * RStudio Server, listening on port 8787 (see [below](#RStudio)).
+ * RStudio Server, listening on port 8787 (see [below](#rstudio)).
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware. 
 To develop notebooks in Python for Spark, the `Pyspark (Py 2)` kernel must be 
@@ -195,7 +195,7 @@ This version of the Vagrantfile installs a couple of additional packages onto th
    developed withon RStudio: R files here will be visible in both the host and 
    the VM. To make RStudio Server point to this directory by default, set the 
    option in
-      Tools -> Global Options -> Default working directory
+      _Tools -> Global Options -> Default working directory_
 
 
 ### Security
