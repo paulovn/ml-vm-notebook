@@ -98,7 +98,7 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 0.9.12"
+    vgrspark.vm.box_version = "= 1.0.0"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
@@ -387,9 +387,9 @@ EOF
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
         # Download & install the RPM for RStudio server
-        PKG=rstudio-server-rhel-0.99.902-x86_64.rpm
+        PKG=rstudio-server-rhel-0.99.903-x86_64.rpm
         wget --no-verbose https://download2.rstudio.org/$PKG
-        sudo yum install -y --nogpgcheck $PKG
+        yum install -y --nogpgcheck $PKG
         rm $PKG
         # Define the directory for the user library
         echo "r-libs-user=~/.Rlibrary" >> /etc/rstudio/rsession.conf
@@ -410,18 +410,20 @@ EOF
     if (provision_run_nbc)
       vgrspark.vm.provision "21.nbc",
       type: "shell",
-      privileged: false,
+      privileged: true,
       keep_color: true,
+      args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requisites"
-          sudo yum install -y pandoc inkscape
-          pip install pandoc
+          yum install -y pandoc inkscape
+          sudo -i -u vagrant pip install pandoc
           DIR=$(kpsewhich -var-value TEXMFLOCAL)
           mkdir -p $DIR
           cd $DIR
           for p in collectbox adjustbox; do
             wget --no-verbose http://mirrors.ctan.org/install/macros/latex/contrib/$p.tds.zip
-            unzip $p.tds.zip
+            unzip -o $p.tds.zip
+            rm $p.tds.zip
           done
           texhash
       SHELL
@@ -442,8 +444,8 @@ EOF
         yum -y install python27-tkinter
         su -l "vagrant" <<-EOF
          pip install nltk graphviz
-         pip install https://github.com/paulovn/sparql-kernel/archive/master.zip
-         pip install https://github.com/paulovn/aiml-chatbot-kernel/archive/master.zip
+         pip install aimlbotkernel
+         pip install sparqlkernel
 EOF
         su -l "$1" <<-EOF
          echo "Installing AIML-BOT & SPARQL kernels"

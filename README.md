@@ -16,26 +16,24 @@ The repository also contains a number of example notebooks.
 
 The contents of the VM are:
 
-* Apache Spark 1.6.1
+* Apache Spark 1.6.2
 * Python 2.7.8 from the Software Collections
-* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy,
-* matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
-* R 3.3.0 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies)
+* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
+* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies)
 * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
-* Three additional Spark external libraries:
+* Two additional Spark external libraries (plus configuration prepared to use the [GraphFrames](http://graphframes.github.io/) package)
   - The Kafka Spark Streaming artifact
   - The [Spark CSV](https://github.com/databricks/spark-csv) library
-  - The [GraphFrames](http://graphframes.github.io/) Spark package.
 
-**Important**: in this installation the default Python kernel for notebooks 
-is **not** Spark-aware. Hence Python Notebooks running Spark tasks that were 
-created with previous versions of this VM will not work initially. 
+**Important**: the default Python kernel for notebooks is **not** Spark-aware. 
+To develop notebooks in Python for Spark, the `Pyspark (Py 2)` kernel must be 
+specifically selected. Hence Spark Python Notebooks that were created elsewhere
+(or with former versions of this VM) will not work initially. 
 They can be made to work by changing its kernel (use the option in the menubar)
 to the "Pyspark" kernel. Once done, it is stored in the notebook, so saving
-it will make it work in future executions (but the saved notebook will *not*
-work in a previous version of the VM).
+it will make it work in future executions.
 
 
 ## Installation
@@ -175,15 +173,15 @@ the `./vmfiles/hive` directory in the host (mounted in the VM).
 Note that due to Derby being a single-process DB, only one Spark SQL process 
 may be active at any given moment (since it would collide over the use of the 
 metastore). This means that there should be only one active Notebook (or Spark 
-shell) making use of an sqlContext.
+shell) making use of an `sqlContext`.
  
 
 ### RStudio
 
 This version of the Vagrantfile installs a couple of additional packages onto the base box:
  * The `neuralnet` R package
- * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. Therefore, 
-   to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787). The credentials to use are: user `vmuser`, password `vmuser`
+ * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. Therefore, to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787). The credentials to use are: user `vmuser`, password `vmuser`. The local directory `vmfiles/R` is intended to be used to hold all R code developed withon RStudio: R files here will be visible in both the host and the VM. To make RStudio Server point to this directory by default, set the option in
+   Tools -> Global Options -> Default working directory
 
 
 ### Security
