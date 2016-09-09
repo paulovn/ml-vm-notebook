@@ -7,6 +7,7 @@ This instance builds on the `tid-spark/base64` VM (which already provides all
 the needed software packages). On top of that, it configures and launches a
 Jupyter Notebook process, exported as an HTTP service to a local port. It 
 allows creating notebooks with four different kernels:
+
   * Python 2.7 (plain), 
   * Python 2.7 + Spark (pyspark),
   * Scala + Spark
@@ -16,16 +17,17 @@ The repository also contains a number of example notebooks.
 
 The contents of the VM are:
 
-* Apache Spark 1.6.2
-* Python 2.7.8 from the Software Collections
-* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
-* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies)
-* Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
-* A few small [notebook extensions](https://github.com/paulovn/nbextensions)
-* A notebook startup daemon script with facilities to configure Spark execution mode
-* Two additional Spark external libraries (plus configuration prepared to use the [GraphFrames](http://graphframes.github.io/) package)
-  - The Kafka Spark Streaming artifact
-  - The [Spark CSV](https://github.com/databricks/spark-csv) library
+ * Apache Spark 1.6.2
+ * Python 2.7.8 from the Software Collections
+ * A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
+ * R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, neuralnet plus their dependencies)
+ * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
+ * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
+ * A notebook startup daemon script with facilities to configure Spark execution mode
+ * Two additional Spark external libraries (plus configuration prepared to use the [GraphFrames](http://graphframes.github.io/) package)
+   - The Kafka Spark Streaming artifact
+   - The [Spark CSV](https://github.com/databricks/spark-csv) library
+ * RStudio Server, listening on port 8787 (see [below](#RStudio)).
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware. 
 To develop notebooks in Python for Spark, the `Pyspark (Py 2)` kernel must be 
@@ -88,9 +90,11 @@ blocks port 8008).
 
 The additional files in the ZIP create a layout for sharing content between
 the host and the VM:
+
  * The `vmfiles` subfolder in the host is configured to be mounted inside the
    VM as the `/vagrant` directory, so anything in that subfolder can be 
    accessed within the VM.
+
  * Furthermore, the notebook server is configured to browse the files in the 
    `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
    subdirectory. A few example mini-notebooks are already provided there.
@@ -102,6 +106,7 @@ The Jupyter notebook server starts automatically. It can be managed
 
 For diagnostics, in addition to the messages appearing directly on notebooks, 
 logfiles are generated in `/var/log/ipnb` inside the VM:
+
  * `/var/log/ipnb/jupyter-notebook.out` contains log messages from the Jupyter 
    server
  * `/var/log/ipnb/spark.log` contains log messages from Spark
@@ -128,13 +133,15 @@ three ways to obtain console access to the VM:
 In the two first cases the user logged in the console session will be `vmuser`
 (or, if that was changed in the Vagrantfile, the username defined there). In
 the last case it will be `vagrant`. 
-* The `vmuser` user is intended to execute processing tasks (and is the one 
-  running the Jupyter Notebook server), including Spark command-line 
-  applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as
-  well as Python commands (use `ipython` or `python2.7`, not the bare `python`
-  command, which executes the base OS Python 2.6).
-* The `vagrant` user is intended for administrative tasks (and is the owner of 
-  all the installed Python & Spark stack).
+
+ * The `vmuser` user is intended to execute processing tasks (and is the one 
+   running the Jupyter Notebook server), including Spark command-line 
+   applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as
+   well as Python commands (use `ipython` or `python2.7`, not the bare `python`
+   command, which executes the base OS Python 2.6).
+
+ * The `vagrant` user is intended for administrative tasks (and is the owner of
+   all the installed Python & Spark stack).
 
 Both users have `sudo` permissions, in case it is needed for system 
 administration tasks.
@@ -150,10 +157,11 @@ a mounted folder.
 
 Inside the VM (i.e. as seen from within a console session), Spark is installed 
 in `/opt/spark/current/`. The two important Spark config files are:
-* `/opt/spark/current/conf/spark-env.sh`: environment variables used by the
-  Spark deployment inside the VM
-* `/opt/spark/current/conf/spark-defaults.conf`: configuration properties
-  used by Spark
+
+ * `/opt/spark/current/conf/spark-env.sh`: environment variables used by the
+   Spark deployment inside the VM
+ * `/opt/spark/current/conf/spark-defaults.conf`: configuration properties
+   used by Spark
 
 The Spark kernel in Jupyter Notebook launches with the configuration defined by 
 those two files. If they are changed, Spark kernels currently running will 
@@ -179,9 +187,15 @@ shell) making use of an `sqlContext`.
 ### RStudio
 
 This version of the Vagrantfile installs a couple of additional packages onto the base box:
+
  * The `neuralnet` R package
- * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. Therefore, to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787). The credentials to use are: user `vmuser`, password `vmuser`. The local directory `vmfiles/R` is intended to be used to hold all R code developed withon RStudio: R files here will be visible in both the host and the VM. To make RStudio Server point to this directory by default, set the option in
-   Tools -> Global Options -> Default working directory
+ * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. 
+   Therefore, to access the RStudio interface, go to [`http://localhost:8787`](http://localhost:8787). The credentials to use are: user `vmuser`, password `vmuser`. 
+   The local directory `vmfiles/R` is intended to be used to hold all R code 
+   developed withon RStudio: R files here will be visible in both the host and 
+   the VM. To make RStudio Server point to this directory by default, set the 
+   option in
+      Tools -> Global Options -> Default working directory
 
 
 ### Security
@@ -190,6 +204,7 @@ The VM has not been secured. The base box comes with the default Vagrant key,
 and this is overwritten with a private key when launched for the first time, 
 so ssh connections with certificate are more or less secure. But there are a 
 number of security holes, among them:
+
   * Both the `root` and `vagrant` users use `vagrant` as password.
   * The `vmuser` user has `vmuser` as password
   * Jupyter notebook listens on port 8008 with no restrictions (so that
