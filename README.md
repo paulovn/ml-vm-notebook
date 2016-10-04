@@ -173,7 +173,14 @@ the `./vmfiles/hive` directory in the host (mounted in the VM).
 Note that due to Derby being a single-process DB, only one Spark SQL process 
 may be active at any given moment (since it would collide over the use of the 
 metastore). This means that there should be only one active Notebook (or Spark 
-shell) making use of an `sqlContext`.
+shell) making use of an `sqlContext`. 
+
+To allow more than one Notebook at the same time, the 
+`javax.jdo.option.ConnectionURL` configuration property in `hive-site.xml` 
+should be commented out; this would revert Spark to the default behaviour of
+creating the metastore in the local directory in which the Notebook is running 
+(hence there can be more than one active Notebook running Spark SQL, provided 
+that they are in different directories).
  
 
 ### Security
