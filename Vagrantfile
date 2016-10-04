@@ -1,4 +1,4 @@
-# -*- mode: ruby -*-
+# -*- mode: ruby;  ruby-indent-tabs-mode: t -*-
 # vi: set ft=ruby :
 # **************************************************************************
 # Add specific configuration for running IPython notebooks on a Spark VM
@@ -97,7 +97,7 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 1.0.0"
+    vgrspark.vm.box_version = "= 1.9.1"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
@@ -195,19 +195,37 @@ Vagrant.configure(2) do |config|
     args: [ vm_username ],
     inline: <<-SHELL
       id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
-      su -l "$1" <<-EOF
+
+      # Create the .bash_profile file
+      cat <<'ENDPROFILE' > /home/$1/.bash_profile
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+   . ~/.bashrc
+fi
+
+# User specific environment and startup programs
+export PATH=$HOME/bin:$PATH:$HOME/.local/bin
+export PYSPARK_DRIVER_PYTHON=ipython
+ENDPROFILE
+      chown $1.$1 /home/$1/.bash_profile
+
+      # Create local files as the designated user
+      su -l "$1" <<-USEREOF
 mkdir bin tmp .ssh 2>/dev/null
 chmod 700 .ssh
-rm -f bin/{python2.7,pip,ipython}
-ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython,jupyter} /home/$1/bin
+rm -f bin/{python2.7,pip,ipython,jupyter}
+ln -s /opt/ipnb/bin/{python2.7,pip,ipython,jupyter} bin
 test -d .jupyter || mkdir .jupyter
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
-echo "export PYSPARK_DRIVER_PYTHON=ipython" >> .bash_profile
 echo "export THEANORC=/etc/theanorc:~/.theanorc" >> .bashrc
-EOF
+USEREOF
+
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
+      
     SHELL
 
     # Mount the shared folder with the new created user, so that it can write
@@ -261,7 +279,7 @@ cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
                        "codemirror_mode": { "name": "ipython", "version": 2 }
                      },
     "argv": [
-	"/opt/ipnb/bin/ext/pyspark-ipnb",
+	"/opt/ipnb/bin/pyspark-ipnb",
 	"-m", "ipykernel",
 	"-f", "{connection_file}"
     ],
@@ -280,7 +298,7 @@ EOF
      KERNEL_NAME='spark'
      KERNEL_DIR="${KDIR}/${KERNEL_NAME}_scala"
      su -l "$1" <<-EOF
-/opt/ipnb/bin/ext/jupyter toree install --user --spark_home="$3/current" \
+/opt/ipnb/bin/jupyter toree install --user --spark_home="$3/current" \
    --kernel_name="$KERNEL_NAME" \
    --spark_opts='--master=local[2] \
       --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M \
@@ -323,14 +341,14 @@ EOF
     inline: <<-SHELL
      # Link the IPython notebook startup script, and set it up for starting
      rm -f /etc/init.d/notebook
-     chmod 775 /opt/ipnb/bin/ext/jupyter-notebook-mgr
-     ln -s /opt/ipnb/bin/ext/jupyter-notebook-mgr /etc/init.d/notebook
+     chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
+     ln -s /opt/ipnb/bin/jupyter-notebook-mgr /etc/init.d/notebook
      chkconfig --add notebook
 
      # Create the config for IPython notebook
      cat <<-EOF > /etc/sysconfig/jupyter-notebook
 NOTEBOOK_USER="$2"
-NOTEBOOK_SCRIPT="/opt/ipnb/bin/ext/jupyter-notebook"
+NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
 
      # Configure remote addresses
@@ -344,18 +362,6 @@ EOF
      service notebook set-mode "$3"
   SHELL
 
-
-    # .........................................
-    # Create a subdirectory in the shared folder linked to the 
-    # default name of the Hive warehouse directory
-    vgrspark.vm.provision "05.hive.warehouse",
-    type: "shell",
-    keep_color: true,
-    privileged: true,
-    inline: <<-SHELL
-      mkdir -p /user/hive
-      ln -s /vagrant/warehouse /user/hive/warehouse
-    SHELL
 
     # .........................................
     # Install the neuralnet R package
