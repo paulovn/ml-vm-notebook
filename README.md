@@ -8,24 +8,21 @@ the needed software packages). On top of that, it configures and launches a
 Jupyter Notebook process, exported as an HTTP service to a local port. It 
 allows creating notebooks with four different kernels:
   * Python 2.7 (plain), 
-  * Python 2.7 + Spark (pyspark),
-  * Scala + Spark
+  * Pyspark (Python 2.7 + Spark),
+  * Scala 2.11 + Spark
   * R (with SparkR available, though not loaded by default).
 
 The repository also contains a number of example notebooks.
 
 The contents of the VM are:
 
-* Apache Spark 1.6.2
-* Python 2.7.8 from the Software Collections
-* A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
-* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies)
+* Apache Spark 2.0.2
+* Python 2.7.5
+* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 5 + Jupyter notebook
+* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies). Plus SparkR & sparklyr for interaction with Spark.
 * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
-* Two additional Spark external libraries (plus configuration prepared to use the [GraphFrames](http://graphframes.github.io/) package)
-  - The Kafka Spark Streaming artifact
-  - The [Spark CSV](https://github.com/databricks/spark-csv) library
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware. 
 To develop notebooks in Python for Spark, the `Pyspark (Py 2)` kernel must be 
@@ -58,7 +55,7 @@ it will make it work in future executions.
 
 2. If desired, open the Vagrantfile with a text editor and customize the 
    options at the top of the file; see the relevant comments. 
-   Specially interesting might be the amount of RAM assigned to the Virtual 
+   Specially interesting might be the amount of RAM/CPUs assigned to the Virtual
    Machine and, if access to a remote Spark cluster is sought, the IP address 
    of the cluster. 
    Note that no customization is needed to make the VM work (i.e. it will 
@@ -73,9 +70,9 @@ it will make it work in future executions.
 5. Then the VM will be started and provisioned. The process will print progress 
    messages to the terminal.
 
-Note that the base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) should be accessible when provisioning this VM. 
+The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM.
 The default URL in the Vagrantfile points to a box publicly available in ATLAS,
-so there should be no problem.
+so there should be no problem as long as there is a working Internet connection.
 
 
 ## Operation
@@ -94,11 +91,13 @@ the host and the VM:
  * Furthermore, the notebook server is configured to browse the files in the 
    `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
    subdirectory. A few example mini-notebooks are already provided there.
+ * Finally, the `vmfiles/hive` subdirectory is the place configured in Spark SQL
+   for its metastore & tables (so it should survive to changes in the VM).
 
 The Jupyter notebook server starts automatically. It can be managed
 (start/stop/restart) in a console session (see below) via:
 
-    sudo service notebook (start | stop | restart)
+    sudo systemctl (start | stop | restart) notebook
 
 For diagnostics, in addition to the messages appearing directly on notebooks, 
 logfiles are generated in `/var/log/ipnb` inside the VM:
@@ -131,8 +130,8 @@ the last case it will be `vagrant`.
 * The `vmuser` user is intended to execute processing tasks (and is the one 
   running the Jupyter Notebook server), including Spark command-line 
   applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as
-  well as Python commands (use `ipython` or `python2.7`, not the bare `python`
-  command, which executes the base OS Python 2.6).
+  well as Python commands (use either `ipython` or `python`, which points to
+  the virtualenv where all is intalled).
 * The `vagrant` user is intended for administrative tasks (and is the owner of 
   all the installed Python & Spark stack).
 
