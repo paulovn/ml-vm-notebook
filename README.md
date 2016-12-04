@@ -7,19 +7,20 @@ This instance builds on the `tid-spark/base64` VM (which already provides all
 the needed software packages). On top of that, it configures and launches a
 Jupyter Notebook process, exported as an HTTP service to a local port. It 
 allows creating notebooks with four different kernels:
-  * Python 2.7 (plain), 
-  * Pyspark (Python 2.7 + Spark),
+  * Python 2.7 (plain Python, with additional libraries such as NumPy, SciPy, 
+    Pandas, Matplotlib, Scikit-learn), 
+  * Pyspark (Python 2.7 + libraries + Spark),
   * Scala 2.11 + Spark
   * R (with SparkR available, though not loaded by default).
 
-The repository also contains a number of example notebooks.
+The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* Apache Spark 2.0.2
+* [Apache Spark](http://spark.apache.org/) 2.0.2
 * Python 2.7.5
 * A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 5 + Jupyter notebook
-* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret plus their dependencies). Plus SparkR & sparklyr for interaction with Spark.
+* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
 * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
@@ -65,7 +66,7 @@ it will make it work in future executions.
    located and execute a `vagrant up` command.
 
 4. Vagrant should launch the process and download the base box from the public 
-   repository (this is only done once).
+   repository (this takes time, depending on your network bandwidth, but is only done once).
 
 5. Then the VM will be started and provisioned. The process will print progress 
    messages to the terminal.
