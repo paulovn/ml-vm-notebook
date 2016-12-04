@@ -1,4 +1,4 @@
-# -*- mode: ruby -*-
+# -*- mode: ruby;  ruby-indent-tabs-mode: t -*-
 # vi: set ft=ruby :
 # **************************************************************************
 # Add specific configuration for running IPython notebooks on a Spark VM
@@ -67,11 +67,17 @@ vagrant_command = ARGV[0]
 
 # Conditionally activate some provision sections
 provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('20.rstudio'))
+        (vagrant_command == 'provision' && ARGV.include?('rstudio'))
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && ARGV.include?('21.nbc'))
+        (vagrant_command == 'provision' && ARGV.include?('nbc'))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('22.ai'))
+        (vagrant_command == 'provision' && ARGV.include?('ai'))
+provision_run_mvn  = ENV['PROVISION_MVN'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('mvn'))
+provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('dl'))
+
+#provision_run_rs = true
 #provision_run_ai = true
 
 
@@ -97,7 +103,7 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 1.0.0"
+    vgrspark.vm.box_version = "= 1.9.3"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
@@ -153,6 +159,10 @@ Vagrant.configure(2) do |config|
     # =====> uncomment if using RStudio
     #vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
 
+    # Quiver
+    # =====> uncomment if using Quiver visualization for Keras
+    #vgrspark.vm.network :forwarded_port, host: 5000, guest: 5000
+
     # In case we want to fix Spark ports
     #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
     #vgrspark.vm.network :forwarded_port, host: 9235, guest: 9235
@@ -195,19 +205,36 @@ Vagrant.configure(2) do |config|
     args: [ vm_username ],
     inline: <<-SHELL
       id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
-      su -l "$1" <<-EOF
-mkdir bin tmp .ssh 2>/dev/null
+
+      # Create the .bash_profile file
+      cat <<'ENDPROFILE' > /home/$1/.bash_profile
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+   . ~/.bashrc
+fi
+
+# User specific environment and startup programs
+export PATH=$HOME/bin:$PATH:$HOME/.local/bin
+export PYSPARK_DRIVER_PYTHON=ipython
+ENDPROFILE
+      chown $1.$1 /home/$1/.bash_profile
+
+      # Create local files as the designated user
+      su -l "$1" <<'USEREOF'
+for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
-rm -f bin/{python2.7,pip,ipython}
-ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython,jupyter} /home/$1/bin
-test -d .jupyter || mkdir .jupyter
+rm -f bin/{python,python2.7,pip,ipython,jupyter}
+ln -s /opt/ipnb/bin/{python,python2.7,pip,ipython,jupyter} bin
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
-echo "export PYSPARK_DRIVER_PYTHON=ipython" >> .bash_profile
-echo "export THEANORC=/etc/theanorc:~/.theanorc" >> .bashrc
-EOF
+echo -e "export THEANORC=/etc/theanorc:~/.theanorc\nexport R_LIBS_USER=~/.Rlibrary" >> .bashrc
+USEREOF
+
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
+      
     SHELL
 
     # Mount the shared folder with the new created user, so that it can write
@@ -261,7 +288,7 @@ cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
                        "codemirror_mode": { "name": "ipython", "version": 2 }
                      },
     "argv": [
-	"/opt/ipnb/bin/ext/pyspark-ipnb",
+	"/opt/ipnb/bin/pyspark-ipnb",
 	"-m", "ipykernel",
 	"-f", "{connection_file}"
     ],
@@ -276,16 +303,18 @@ cp -p $3/kernel-icons/pyspark-icon-32x32.png $KDIR/$KERNEL_NAME/logo-32x32.png
 EOF
 
      # --------------------- Install the Toree Spark kernel
+     # Toree defines the kernel name as "<PassedName>_<interpreter>", so
+     # the name (and directory) will be "spark_scala"
      echo "Installing Toree (Scala) kernel ..."
      KERNEL_NAME='spark'
      KERNEL_DIR="${KDIR}/${KERNEL_NAME}_scala"
      su -l "$1" <<-EOF
-/opt/ipnb/bin/ext/jupyter toree install --user --spark_home="$3/current" \
+/opt/ipnb/bin/jupyter toree install --user --spark_home="$3/current" \
    --kernel_name="$KERNEL_NAME" \
    --spark_opts='--master=local[2] \
       --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M \
       --driver-java-options=-Dlog4j.logLevel=info'
-sed -i 's/"spark - Scala"/"Spark (Scala 2.10)"/' "${KERNEL_DIR}/kernel.json"
+sed -i 's/"spark - Scala"/"Spark (Scala 2.11)"/' "${KERNEL_DIR}/kernel.json"
 # Copy Scala kernel logos
 cp -p $3/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
 cp -p $3/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
@@ -295,6 +324,13 @@ EOF
      echo "Installing IRkernel ..."
      su -l "$1" <<-EOF
 PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
+     # Add the SPARK_HOME env variable to R
+     echo "SPARK_HOME=$3/current" >> /home/$1/.Renviron
+     # Add the SPARK_HOME env variable to the kernel.json file
+     #KERNEL_JSON="${KDIR}/ir/kernel.json"
+     #ENVLINE='  "env": { "SPARK_HOME": "'$3'/current" },'
+     #POS=$(sed -n '/"argv"/=' $KERNEL_JSON)
+     #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
 EOF
 
      # --------------------- Install the notebook extensions
@@ -321,45 +357,35 @@ EOF
     args: [ spark_basedir, vm_username, spark_mode,
             spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
-     # Link the IPython notebook startup script, and set it up for starting
-     rm -f /etc/init.d/notebook
-     chmod 775 /opt/ipnb/bin/ext/jupyter-notebook-mgr
-     ln -s /opt/ipnb/bin/ext/jupyter-notebook-mgr /etc/init.d/notebook
-     chkconfig --add notebook
+     # Link the IPython mgr script so that it can be found by root
+     chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
+     rm -f /usr/sbin/notebook
+     ln -s /opt/ipnb/bin/jupyter-notebook-mgr /usr/sbin
+     # note we do not enable it -- we will explicitly start it at the end
 
      # Create the config for IPython notebook
      cat <<-EOF > /etc/sysconfig/jupyter-notebook
 NOTEBOOK_USER="$2"
-NOTEBOOK_SCRIPT="/opt/ipnb/bin/ext/jupyter-notebook"
+NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
 
      # Configure remote addresses
      if [ "$4" ]; then
-       service notebook set-addr yarn "$4" "$5" "$6"
-       service notebook set-addr standalone "$4" "$5" "$6"
+       jupyter-notebook-mgr set-addr yarn "$4" "$5" "$6"
+       jupyter-notebook-mgr set-addr standalone "$4" "$5" "$6"
      fi 
 
      # Set the name of the initially active config
      echo "Configuring Spark mode as: $3"
-     service notebook set-mode "$3"
+     jupyter-notebook-mgr set-mode "$3"
   SHELL
 
-
-    # .........................................
-    # Create a subdirectory in the shared folder linked to the 
-    # default name of the Hive warehouse directory
-    vgrspark.vm.provision "05.hive.warehouse",
-    type: "shell",
-    keep_color: true,
-    privileged: true,
-    inline: <<-SHELL
-      mkdir -p /user/hive
-      ln -s /vagrant/warehouse /user/hive/warehouse
-    SHELL
+    # *************************************************************************
+    # Optional packages
 
     # .........................................
     # Install the neuralnet R package
-    # vgrspark.vm.provision "10.r.neuralnet",
+    # vgrspark.vm.provision "neuralnet",
     # type: "shell",
     # keep_color: true,
     # privileged: true,
@@ -378,7 +404,7 @@ EOF
     # PROVISION_RSTUDIO when creating or by --provision-with 20.rstudio) 
     # *** Don't forget to also uncomment forwarding for port 8787!
     if (provision_run_rs)
-      vgrspark.vm.provision "20.rstudio",
+      vgrspark.vm.provision "rstudio",
       type: "shell",
       keep_color: true,
       privileged: true,
@@ -386,12 +412,13 @@ EOF
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
         # Download & install the RPM for RStudio server
-        PKG=rstudio-server-rhel-0.99.903-x86_64.rpm
-        wget --no-verbose https://download2.rstudio.org/$PKG
+        PKG=rstudio-server-rhel-1.0.136-x86_64.rpm
+        wget --no-verbose https://s3.amazonaws.com/rstudio-dailybuilds/$PKG
         yum install -y --nogpgcheck $PKG
         rm $PKG
         # Define the directory for the user library
-        echo "r-libs-user=~/.Rlibrary" >> /etc/rstudio/rsession.conf
+        CNF=/etc/rstudio/rsession.conf
+        grep -q r-libs-user $CNF || echo "r-libs-user=~/.Rlibrary" >> $CNF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
@@ -407,13 +434,13 @@ EOF
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_NBC when creating or by --provision-with 21.nbc) 
     if (provision_run_nbc)
-      vgrspark.vm.provision "21.nbc",
+      vgrspark.vm.provision "nbc",
       type: "shell",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-          echo "Installing nbconvert requisites"
+          echo "Installing nbconvert requirements"
           yum install -y pandoc inkscape
           sudo -i -u vagrant pip install pandoc
           DIR=$(kpsewhich -var-value TEXMFLOCAL)
@@ -424,7 +451,17 @@ EOF
             unzip -o $p.tds.zip
             rm $p.tds.zip
           done
+          # The LaTeX generated by nbconvert uses the ulem & upquote packages
+          # But they are not available as tds install packages. And ulem
+          # has a RPM package tex(ulem), but upquote does not
+          cd tex/latex
+          for p in ulem upquote; do
+            wget --no-verbose http://mirrors.ctan.org/macros/latex/contrib/$p/$p.sty
+          done
           texhash
+          # Finally we modify the LaTeX template to generate A4 pages
+          # (comment this out to keep Letter-sized pages)
+          sed -i -e 's/\(\geometry{\)/\1a4paper,/' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
     end
 
@@ -433,7 +470,7 @@ EOF
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_AI when creating or by --provision-with 22.ai) 
     if (provision_run_ai)
-      vgrspark.vm.provision "22.ai",
+      vgrspark.vm.provision "ai",
       type: "shell",
       privileged: true,
       keep_color: true,
@@ -442,7 +479,7 @@ EOF
         echo "Installing packages for AI course"
         yum -y install python27-tkinter
         su -l "vagrant" <<-EOF
-         pip install nltk graphviz
+         pip install nltk graphviz quiver
          pip install aimlbotkernel
          pip install sparqlkernel
 EOF
@@ -455,6 +492,50 @@ EOF
       SHELL
     end
 
+
+    # .........................................
+    # Install Maven
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_MVN when creating or by --provision-with 23.mvn) 
+    if (provision_run_mvn)
+      vgrspark.vm.provision "mvn",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+        VERSION=3.3.9
+        echo "Installing Maven $VERSION"
+        cd Soft
+        PKG=apache-maven-3.3.9
+        FILE=$PKG-bin.tar.gz
+        wget http://apache.rediris.es/maven/maven-3/$VERSION/binaries/$FILE
+        tar zxvf $FILE
+        ln -s $HOME/Soft/$PKG/bin/mvn $HOME/bin
+      SHELL
+    end
+
+
+    # .........................................
+    # Install some Deep Learning stuff
+    # (we assume Theano & Keras are already installed)
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_DL when creating or by --provision-with 24.dl) 
+    if (provision_run_dl)
+      vgrspark.vm.provision "dl",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+         TF_BINARY=tensorflow-0.11.0-cp27-none-linux_x86_64.whl
+         URL=https://storage.googleapis.com/tensorflow/linux/cpu/$TF_BINARY
+         wget $URL
+         pip install --upgrade $TF_BINARY
+         pip install quiver
+       SHELL
+    end
+
+
+    # *************************************************************************
 
     # .........................................
     # Start Jupyter Notebook
@@ -470,7 +551,7 @@ EOF
       run: "always",
       privileged: true,
       keep_color: true,    
-      inline: "/etc/init.d/notebook start"
+      inline: "systemctl start notebook"
 
 
   end # config.vm.define
