@@ -3,8 +3,12 @@
 
 *~
 *.log
-metastore_db
 
-vmfiles/warehouse/*
+vmfiles/hive/metastore_db
+vmfiles/hive/warehouse
+
 vmfiles/R/*
 vmfiles/Soft
+vmfiles/IPNB/UAM
+vmfiles/IPNB/Misc
+vmfiles/IPNB/MLCourse

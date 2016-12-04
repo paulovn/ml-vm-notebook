@@ -7,26 +7,23 @@ This instance builds on the `tid-spark/base64` VM (which already provides all
 the needed software packages). On top of that, it configures and launches a
 Jupyter Notebook process, exported as an HTTP service to a local port. It 
 allows creating notebooks with four different kernels:
-
-  * Python 2.7 (plain), 
-  * Python 2.7 + Spark (pyspark),
-  * Scala + Spark
+  * Python 2.7 (plain Python, with additional libraries such as NumPy, SciPy, 
+    Pandas, Matplotlib, Scikit-learn), 
+  * Pyspark (Python 2.7 + libraries + Spark),
+  * Scala 2.11 + Spark
   * R (with SparkR available, though not loaded by default).
 
-The repository also contains a number of example notebooks.
+The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
- * Apache Spark 1.6.2
- * Python 2.7.8 from the Software Collections
- * A virtualenv for Python 2.7.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 4 + Jupyter notebook
- * R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, neuralnet plus their dependencies)
- * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
- * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
- * A notebook startup daemon script with facilities to configure Spark execution mode
- * Two additional Spark external libraries (plus configuration prepared to use the [GraphFrames](http://graphframes.github.io/) package)
-   - The Kafka Spark Streaming artifact
-   - The [Spark CSV](https://github.com/databricks/spark-csv) library
+* [Apache Spark](http://spark.apache.org/) 2.0.2
+* Python 2.7.5
+* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 5 + Jupyter notebook
+* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
+* A few small [notebook extensions](https://github.com/paulovn/nbextensions)
+* A notebook management script with facilities to configure Spark execution mode
  * RStudio Server, listening on port 8787 (see [below](#rstudio)).
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware. 
@@ -60,7 +57,7 @@ it will make it work in future executions.
 
 2. If desired, open the Vagrantfile with a text editor and customize the 
    options at the top of the file; see the relevant comments. 
-   Specially interesting might be the amount of RAM assigned to the Virtual 
+   Specially interesting might be the amount of RAM/CPUs assigned to the Virtual
    Machine and, if access to a remote Spark cluster is sought, the IP address 
    of the cluster. 
    Note that no customization is needed to make the VM work (i.e. it will 
@@ -70,14 +67,14 @@ it will make it work in future executions.
    located and execute a `vagrant up` command.
 
 4. Vagrant should launch the process and download the base box from the public 
-   repository (this is only done once).
+   repository (this takes time, depending on your network bandwidth, but is only done once).
 
 5. Then the VM will be started and provisioned. The process will print progress 
    messages to the terminal.
 
-Note that the base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) should be accessible when provisioning this VM. 
+The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM.
 The default URL in the Vagrantfile points to a box publicly available in ATLAS,
-so there should be no problem.
+so there should be no problem as long as there is a working Internet connection.
 
 
 ## Operation
@@ -98,11 +95,13 @@ the host and the VM:
  * Furthermore, the notebook server is configured to browse the files in the 
    `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
    subdirectory. A few example mini-notebooks are already provided there.
+ * Finally, the `vmfiles/hive` subdirectory is the place configured in Spark SQL
+   for its metastore & tables (so it should survive to changes in the VM).
 
 The Jupyter notebook server starts automatically. It can be managed
 (start/stop/restart) in a console session (see below) via:
 
-    sudo service notebook (start | stop | restart)
+    sudo systemctl (start | stop | restart) notebook
 
 For diagnostics, in addition to the messages appearing directly on notebooks, 
 logfiles are generated in `/var/log/ipnb` inside the VM:
@@ -137,8 +136,8 @@ the last case it will be `vagrant`.
  * The `vmuser` user is intended to execute processing tasks (and is the one 
    running the Jupyter Notebook server), including Spark command-line 
    applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as
-   well as Python commands (use `ipython` or `python2.7`, not the bare `python`
-   command, which executes the base OS Python 2.6).
+   well as Python commands (use either `ipython` or `python`, which points to
+   the virtualenv where all is intalled).
 
  * The `vagrant` user is intended for administrative tasks (and is the owner of
    all the installed Python & Spark stack).
@@ -181,12 +180,20 @@ the `./vmfiles/hive` directory in the host (mounted in the VM).
 Note that due to Derby being a single-process DB, only one Spark SQL process 
 may be active at any given moment (since it would collide over the use of the 
 metastore). This means that there should be only one active Notebook (or Spark 
-shell) making use of an `sqlContext`.
+shell) making use of an `sqlContext`. 
+
+To allow more than one Notebook at the same time, the 
+`javax.jdo.option.ConnectionURL` configuration property in `hive-site.xml` 
+should be commented out; this would revert Spark to the default behaviour of
+creating the metastore in the local directory in which the Notebook is running 
+(hence there can be more than one active Notebook running Spark SQL, provided 
+that they are in different directories).
  
 
 ### RStudio
 
-This version of the Vagrantfile installs a couple of additional packages onto the base box:
+This version of the Vagrantfile installs a couple of additional packages onto 
+the base box:
 
  * The `neuralnet` R package
  * [RStudio Server](https://support.rstudio.com/hc/en-us/articles/200552306-Getting-Started), forwarding its port (8787) to the host machine. 
@@ -209,5 +216,3 @@ number of security holes, among them:
   * The `vmuser` user has `vmuser` as password
   * Jupyter notebook listens on port 8008 with no restrictions (so that
     if the host computer has no firewall, it can be accessed from anywhere)
-
-
