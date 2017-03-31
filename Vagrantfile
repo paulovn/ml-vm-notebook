@@ -75,8 +75,10 @@ provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
         (vagrant_command == 'provision' && ARGV.include?('nbc'))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('ai'))
-provision_run_mvn  = ENV['PROVISION_MVN'] == '1' || \
+provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('mvn'))
+provision_run_scaladev = ENV['PROVISION_SBT'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('scaladev'))
 provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('dl'))
 
@@ -106,15 +108,16 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 1.9.4"
+    vgrspark.vm.box_version = "= 1.9.6"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal
     #vgrspark.vm.box = "uam/spark-base64"
     #vgrspark.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
-    # Alternative place: TID internal or local box
+    # Alternative place: TID internal
     #vgrspark.vm.box = "tid/spark-base64"
     #vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
+    # Alternative place: local box
     #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
@@ -271,10 +274,12 @@ USEREOF
     args: [ vm_username, vm_password, port_ipython, spark_basedir ],
     inline: <<-SHELL
 
+    USERNAME=$1
+
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
      PWD=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print passwd('$2')")
-     cat <<-EOF > /home/$1/.jupyter/jupyter_notebook_config.py
+     cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 c = get_config()
 # define server
 c.NotebookApp.ip = '*'
@@ -282,7 +287,7 @@ c.NotebookApp.port = $3
 c.NotebookApp.password = u'$PWD'
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
-c.NotebookApp.notebook_dir = u'/home/$1/IPNB'  
+c.NotebookApp.notebook_dir = u'/home/$USERNAME/IPNB'
 # Preload matplotlib
 c.IPKernelApp.matplotlib = 'inline'
 # Kernel heartbeat interval in seconds.
@@ -290,14 +295,14 @@ c.IPKernelApp.matplotlib = 'inline'
 c.KernelRestarter.time_to_dead = 30.0
 c.KernelRestarter.debug = True
 EOF
-     chown $1.$1 /home/$1/.jupyter/jupyter_notebook_config.py
+     chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 
-     KDIR=/home/$1/.local/share/jupyter/kernels
+     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
 
      # --------------------- Install the Pyspark kernel
      echo "Installing Pyspark kernel"
      KERNEL_NAME=pyspark
-     su -l "$1" <<-EOF
+     su -l "$USERNAME" <<-EOF
 mkdir -p "${KDIR}/${KERNEL_NAME}"
 cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
 {
@@ -326,7 +331,7 @@ EOF
      echo "Installing Toree (Scala) kernel ..."
      KERNEL_NAME='spark'
      KERNEL_DIR="${KDIR}/${KERNEL_NAME}_scala"
-     su -l "$1" <<-EOF
+     su -l "$USERNAME" <<-EOF
 /opt/ipnb/bin/jupyter toree install --user --spark_home="$4/current" \
    --kernel_name="$KERNEL_NAME" \
    --spark_opts='--master=local[2] \
@@ -340,10 +345,10 @@ EOF
 
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
-     su -l "$1" <<-EOF
+     su -l "$USERNAME" <<-EOF
 PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
      # Add the SPARK_HOME env variable to R
-     echo "SPARK_HOME=$4/current" >> /home/$1/.Renviron
+     echo "SPARK_HOME=$4/current" >> /home/$USERNAME/.Renviron
      # Add the SPARK_HOME env variable to the kernel.json file
      #KERNEL_JSON="${KDIR}/ir/kernel.json"
      #ENVLINE='  "env": { "SPARK_HOME": "'$4'/current" },'
@@ -353,7 +358,7 @@ EOF
 
      # --------------------- Install the notebook extensions
      echo "Installing notebook extensions"
-     su -l "$1" <<-EOF
+     su -l "$USERNAME" <<-EOF
 python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
      ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python2.7/site-packages
 EOF
@@ -379,7 +384,7 @@ EOF
      chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
      rm -f /usr/sbin/notebook
      ln -s /opt/ipnb/bin/jupyter-notebook-mgr /usr/sbin
-     # note we do not enable it -- we will explicitly start it at the end
+     # note we do not enable the service -- we will explicitly start it at the end
 
      # Create the config for IPython notebook
      cat <<-EOF > /etc/sysconfig/jupyter-notebook
@@ -426,7 +431,7 @@ EOF
       type: "shell",
       keep_color: true,
       privileged: true,
-      args: [ vm_username, vm_passwd ],
+      args: [ vm_username, vm_password ],
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
         # Download & install the RPM for RStudio server
@@ -459,7 +464,7 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          yum install -y pandoc inkscape
+          yum install -y pandoc inkscape texlive-xetex texlive-xetex-def
           sudo -i -u vagrant pip install pandoc
           DIR=$(kpsewhich -var-value TEXMFLOCAL)
           mkdir -p $DIR
@@ -510,7 +515,6 @@ EOF
       SHELL
     end
 
-
     # .........................................
     # Install Maven
     # Do it only if explicitly requested (either by environment variable 
@@ -536,6 +540,33 @@ EOF
       SHELL
     end
 
+    # Install a couple of utilities for Scala development
+    if (provision_run_scaladev)
+      vgrspark.vm.provision "scaladev",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        # Install sbt
+        wget https://bintray.com/sbt/rpm/rpm -O /etc/yum.repos.d/bintray-sbt-rpm.repo && yum -y install sbt
+        # Install scala-mode for Emacs
+        echo "Configuring scala-mode in Emacs" 
+        cat <<EOF >> /home/$1/.emacs
+
+; Install MELPA package repository
+(require 'package)
+(add-to-list 'package-archives
+            '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+(package-initialize)
+; Install Scala mode
+(unless (package-installed-p 'scala-mode)
+    (package-refresh-contents) (package-install 'scala-mode))
+
+EOF
+         chown $1.$1 /home/$1/.emacs
+      SHELL
+    end
 
     # .........................................
     # Install some Deep Learning stuff
