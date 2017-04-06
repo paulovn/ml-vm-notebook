@@ -4,11 +4,27 @@
 *~
 *.log
 
+buildfiles
+
 vmfiles/hive/metastore_db
 vmfiles/hive/warehouse
 
 vmfiles/R/*
 vmfiles/Soft
+
+vmfiles/IPNB/AURA
+vmfiles/IPNB/CS190
+vmfiles/IPNB/Dojo
+vmfiles/IPNB/EdX
 vmfiles/IPNB/UAM
 vmfiles/IPNB/Misc
 vmfiles/IPNB/MLCourse
+vmfiles/IPNB/TMP
+vmfiles/IPNB/UAM
+vmfiles/IPNB/UNED
+
+vmfiles/IPNB/Examples/b Graphics/*.gv
+vmfiles/IPNB/Examples/b Graphics/*.svg
+vmfiles/IPNB/Examples/b Graphics/*.png
+
+Untitled*.ipynb
