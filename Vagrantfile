@@ -108,7 +108,7 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 1.9.6"
+    vgrspark.vm.box_version = "= 1.9.7"
     vgrspark.vm.box = "paulovn/spark-base64"
 
     # Alternative place: UAM internal

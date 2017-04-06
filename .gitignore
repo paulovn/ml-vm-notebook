@@ -12,6 +12,7 @@ vmfiles/hive/warehouse
 vmfiles/R/*
 vmfiles/Soft
 
+vmfiles/IPNB/AURA
 vmfiles/IPNB/CS190
 vmfiles/IPNB/Dojo
 vmfiles/IPNB/EdX
@@ -22,3 +23,6 @@ vmfiles/IPNB/TMP
 vmfiles/IPNB/UAM
 vmfiles/IPNB/UNED
 
+vmfiles/IPNB/Examples/b Graphics/*.gv
+vmfiles/IPNB/Examples/b Graphics/*.svg
+vmfiles/IPNB/Examples/b Graphics/*.png
