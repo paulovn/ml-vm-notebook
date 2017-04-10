@@ -17,7 +17,7 @@ The contents of the VM are:
 
 * Python 2.7.5
 * A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, mpld3, seaborn) plus IPython 5 + Jupyter notebook
-* R 3.3.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus ([IRKernel](https://github.com/IRkernel/IRkernel)).
+* R 3.3.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus [IRKernel](https://github.com/IRkernel/IRkernel).
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script installed as a systemd service
 
@@ -73,6 +73,9 @@ Once installation finishes, a notebook server will be running on
 access it. By default it is also accessible externally, i.e. other machines
 in the network can also connect to it (unless the host computer has a
 firewall that blocks port 8008).
+
+The notebook will require the access password defined in the `Vagrantfile`
+(unless changed before installation, it will be `vmuser`)
 
 The additional files in the ZIP create a layout for sharing content between
 the host and the VM:
@@ -140,6 +143,6 @@ key, and this is overwritten with a private key when launched for the first
 time, so ssh connections with certificate are more or less secure. But there
 are a number of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
-  * Jupyter notebook listens on port 8008 with a very trivial password
-    (`vmuser`). If the host computer has no firewall, it can be accessed
+  * Jupyter notebook listens on port 8008 with a very trivial password.
+    If the host computer has no firewall, it can be accessed
     from anywhere)
