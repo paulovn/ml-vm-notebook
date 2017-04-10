@@ -60,7 +60,8 @@ The contents of the VM are:
 5. Then the VM will be started and provisioned. The process will print
    progress messages to the terminal.
 
-The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioningçthis VM.
+The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning
+this VM.
 The default URL in the Vagrantfile points to a box publicly available in
 ATLAS, so there should be no problem as long as there is a working Internet
 connection.
@@ -74,8 +75,8 @@ access it. By default it is also accessible externally, i.e. other machines
 in the network can also connect to it (unless the host computer has a
 firewall that blocks port 8008).
 
-The notebook will require the access password defined in the `Vagrantfile`
-(unless changed before installation, it will be `vmuser`)
+Using the notebook interface will require the access password defined in
+the `Vagrantfile` (unless changed before installation, it will be `vmuser`)
 
 The additional files in the ZIP create a layout for sharing content between
 the host and the VM:
@@ -96,6 +97,7 @@ notebooks, logfiles are generated in `/var/log/ipnb` inside the VM:
  * `/var/log/ipnb/jupyter-notebook.out` contains log messages from the
    Jupyter server
 
+
 ### Console
 
 In addition to creating, editing and executing Notebooks via the Web
@@ -112,8 +114,8 @@ There are three ways to obtain console access to the VM:
    [PuTTY](http://www.putty.org/)). Connect to the following destination:
     - Host: 127.0.0.1 (localhost)
     - Port: 2222
-    - User: vagrant
-    - Password: vagrant
+    - User: `vagrant`
+    - Password: `vagrant`
 
 In the two first cases the user logged in the console session will be
 `vmuser` (or, if that was changed in the Vagrantfile, the username defined
@@ -135,7 +137,6 @@ the `/vagrant` directory can be edited directly in the host, since it is
 a mounted folder.
 
 
-
 ### Security
 
 The VM has not been secured. The base box comes with the default Vagrant
@@ -145,4 +146,4 @@ are a number of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
   * Jupyter notebook listens on port 8008 with a very trivial password.
     If the host computer has no firewall, it can be accessed
-    from anywhere)
+    from anywhere.
