@@ -13,21 +13,22 @@ vm_memory = '2048'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
-# Username that will run all spark processes.
-# If remote (yarn) mode is ever going to be used, it is advisable to change it
-# to a recognizable unique name, so that it is easily identified in the logs
-vm_username = 'vmuser'
-
 # Password to use to access the Notebook web interface 
 vm_password = 'vmuser'
 
-# The virtual machine exports the port where the notebook process by forwarding
-# it to this port of the local machine
+# Username that will run all spark processes.
+# (if remote (yarn) mode is ever going to be used, it is advisable to change
+# it to a recognizable unique name, so that it is easily identified in the
+# server logs)
+vm_username = 'vmuser'
+
+# The virtual machine exports the port where the notebook process by
+# forwarding it to this port of the local machine
 # So to access the notebook server, you point to http://localhost:<port>
 port_ipython = 8008
 
-# Note there is an additional port exported: the Spark UI driver is forwarded 
-# to port 4040
+# Note there is an additional port exported: the Spark UI driver is
+# forwarded to port 4040
 
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
