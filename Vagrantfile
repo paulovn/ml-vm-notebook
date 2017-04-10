@@ -26,34 +26,6 @@ vm_password = 'vmuser'
 # So to access the notebook server, you point to http://localhost:<port>
 port_ipython = 8008
 
-# Note there is an additional port exported: the Spark UI driver is forwarded 
-# to port 4040
-
-# This defines the Spark notebook processing mode. There are three choices
-# available: "local", "yarn", "standalone"
-# It can be changed at runtime by executing inside the virtual machine, as 
-# root user, "service notebook set-mode <mode>"
-spark_mode = 'local'
-
-# -----------------
-# These 3 options are used only when running non-local tasks. They define
-# the access points for the remote cluster.
-# They can also be modified at runtime by executing inside the virtual
-# machine: "sudo service notebook set-addr <A> <B> <C>"
-# **IMPORTANT**: If remote mode is to be used, the virtual machine needs
-# a network interface in bridge mode. In that case Uncomment the relevant
-# lines in the networking section below
-
-# [A] The location of the cluster master (the YARN Resource Manager in Yarn 
-# mode, or the Spark master in standalone mode)
-spark_master = 'samson02.hi.inet'
-# [B] The host running the HDFS namenode
-spark_namenode = 'samson01.hi.inet'
-# [C] The location of the Spark History Server
-spark_history_server = 'samson03.hi.inet:18080'
-# ------------------
-
-
 # --------------------------------------------------------------------------
 # Variables defining the Spark installation in the base box. 
 # Don't change these
@@ -103,13 +75,11 @@ Vagrant.configure(2) do |config|
   #config.ssh.username = "vagrant"
 
 
-  config.vm.define "vm-spark-nb64" do |vgrspark|
-
-    #config.name = "vgr-pyspark"
+  config.vm.define "vm-ml-nb64" do |vgrspark|
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 1.9.7"
-    vgrspark.vm.box = "paulovn/spark-base64"
+    vgrspark.vm.box_version = "= 0.9.0"
+    vgrspark.vm.box = "paulovn/ml-base64"
 
     # Alternative place: UAM internal
     #vgrspark.vm.box = "uam/spark-base64"
@@ -134,7 +104,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrspark.vm.hostname = "vm-ipnb-spark"
+    vgrspark.vm.hostname = "vm-ipnb-ml"
     vgrspark.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrspark.vm.hostname.to_s
@@ -154,12 +124,6 @@ Vagrant.configure(2) do |config|
     vgrspark.vm.network :forwarded_port, 
      guest: port_ipython,
      host: port_ipython                  # Notebook UI
-    # Spark driver UI
-    vgrspark.vm.network :forwarded_port, host: 4040, guest: 4040, 
-     auto_correct: true
-    # Spark driver UI for the 2nd application (e.g. a command-line job)
-    vgrspark.vm.network :forwarded_port, host: 4041, guest: 4041,
-     auto_correct: true
 
     # RStudio server
     # =====> uncomment if using RStudio
@@ -168,13 +132,6 @@ Vagrant.configure(2) do |config|
     # Quiver
     # =====> uncomment if using Quiver visualization for Keras
     #vgrspark.vm.network :forwarded_port, host: 5000, guest: 5000
-
-    # In case we want to fix Spark ports
-    #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
-    #vgrspark.vm.network :forwarded_port, host: 9235, guest: 9235
-    #vgrspark.vm.network :forwarded_port, host: 9236, guest: 9236
-    #vgrspark.vm.network :forwarded_port, host: 9237, guest: 9237
-    #vgrspark.vm.network :forwarded_port, host: 9238, guest: 9238
 
     # ---- bridged interface ----
     # Declare a public network
@@ -197,7 +154,7 @@ Vagrant.configure(2) do |config|
     #vgrspark.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrspark.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
+    vgrspark.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
 
 
     # **********************************************************************
@@ -210,7 +167,7 @@ Vagrant.configure(2) do |config|
     privileged: true,
     args: [ vm_username ],
     inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Notebook' -m -G vagrant "$1"
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -223,7 +180,6 @@ fi
 
 # User specific environment and startup programs
 export PATH=$HOME/bin:$PATH:$HOME/.local/bin
-export PYSPARK_DRIVER_PYTHON=ipython
 ENDPROFILE
       chown $1.$1 /home/$1/.bash_profile
 
@@ -264,17 +220,17 @@ USEREOF
 #SHELL
 
     # .........................................
-    # Create the IPython Notebook profile ready to run Spark jobs
-    # and install all kernels: Pyspark, Toree (Scala), IRKernel, and extensions
-    # Prepared for IPython 4 (so that we configure as a Jupyter app)
+    # Create the IPython Notebook profile 
+    # and install IRKernel, and extensions
+    # Prepared for IPython >=4 (so that we configure as a Jupyter app)
     vgrspark.vm.provision "03.nbkernels",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username, vm_password, port_ipython, spark_basedir ],
+    args: [ vm_username, vm_password, port_ipython ],
     inline: <<-SHELL
 
-    USERNAME=$1
+     USERNAME=$1
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
@@ -298,50 +254,6 @@ EOF
      chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 
      KDIR=/home/$USERNAME/.local/share/jupyter/kernels
-
-     # --------------------- Install the Pyspark kernel
-     echo "Installing Pyspark kernel"
-     KERNEL_NAME=pyspark
-     su -l "$USERNAME" <<-EOF
-mkdir -p "${KDIR}/${KERNEL_NAME}"
-cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
-{
-    "display_name": "Pyspark (Py 2)",
-    "language_info": { "name": "python",
-                       "codemirror_mode": { "name": "ipython", "version": 2 }
-                     },
-    "argv": [
-	"/opt/ipnb/bin/pyspark-ipnb",
-	"-m", "ipykernel",
-	"-f", "{connection_file}"
-    ],
-    "env": {
-        "SPARK_HOME": "$4/current"
-    }
-}
-KERNEL
-# Copy Pyspark kernel logo
-cp -p $4/kernel-icons/pyspark-icon-64x64.png $KDIR/$KERNEL_NAME/logo-64x64.png
-cp -p $4/kernel-icons/pyspark-icon-32x32.png $KDIR/$KERNEL_NAME/logo-32x32.png
-EOF
-
-     # --------------------- Install the Toree Spark kernel
-     # Toree defines the kernel name as "<PassedName>_<interpreter>", so
-     # the name (and directory) will be "spark_scala"
-     echo "Installing Toree (Scala) kernel ..."
-     KERNEL_NAME='spark'
-     KERNEL_DIR="${KDIR}/${KERNEL_NAME}_scala"
-     su -l "$USERNAME" <<-EOF
-/opt/ipnb/bin/jupyter toree install --user --spark_home="$4/current" \
-   --kernel_name="$KERNEL_NAME" \
-   --spark_opts='--master=local[2] \
-      --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M \
-      --driver-java-options=-Dlog4j.logLevel=info'
-sed -i 's/"spark - Scala"/"Spark (Scala 2.11)"/' "${KERNEL_DIR}/kernel.json"
-# Copy Scala kernel logos
-cp -p $4/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
-cp -p $4/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
-EOF
 
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
@@ -377,8 +289,7 @@ EOF
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ spark_basedir, vm_username, spark_mode,
-            spark_master, spark_namenode, spark_history_server ],
+    args: [ vm_username ],
     inline: <<-SHELL
      # Link the IPython mgr script so that it can be found by root
      chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
@@ -388,20 +299,11 @@ EOF
 
      # Create the config for IPython notebook
      cat <<-EOF > /etc/sysconfig/jupyter-notebook
-NOTEBOOK_USER="$2"
+NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
 
-     # Configure remote addresses
-     if [ "$4" ]; then
-       jupyter-notebook-mgr set-addr yarn "$4" "$5" "$6"
-       jupyter-notebook-mgr set-addr standalone "$4" "$5" "$6"
-     fi 
-
-     # Set the name of the initially active config
-     echo "Configuring Spark mode as: $3"
-     jupyter-notebook-mgr set-mode "$3"
-  SHELL
+    SHELL
 
     # *************************************************************************
     # Optional packages
@@ -512,59 +414,6 @@ EOF
          jupyter sparqlkernel install --user --logdir /var/log/ipnb
 EOF
 
-      SHELL
-    end
-
-    # .........................................
-    # Install Maven
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_MVN when creating or by --provision-with mvn) 
-    if (provision_run_mvn)
-      vgrspark.vm.provision "mvn",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        VERSION=3.3.9
-        DEST=/opt/maven
-        echo "Installing Maven $VERSION"
-        PKG=apache-maven-$VERSION
-        FILE=$PKG-bin.tar.gz
-        cd /tmp
-        wget http://apache.rediris.es/maven/maven-3/$VERSION/binaries/$FILE
-        rm -rf /home/$1/bin/mvn $DEST 
-        mkdir -p $DEST
-        tar zxvf $FILE -C $DEST
-        su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
-      SHELL
-    end
-
-    # Install a couple of utilities for Scala development
-    if (provision_run_scaladev)
-      vgrspark.vm.provision "scaladev",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        # Install sbt
-        wget https://bintray.com/sbt/rpm/rpm -O /etc/yum.repos.d/bintray-sbt-rpm.repo && yum -y install sbt
-        # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs" 
-        cat <<EOF >> /home/$1/.emacs
-
-; Install MELPA package repository
-(require 'package)
-(add-to-list 'package-archives
-            '("melpa-stable" . "https://stable.melpa.org/packages/") t)
-(package-initialize)
-; Install Scala mode
-(unless (package-installed-p 'scala-mode)
-    (package-refresh-contents) (package-install 'scala-mode))
-
-EOF
-         chown $1.$1 /home/$1/.emacs
       SHELL
     end
 
