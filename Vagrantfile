@@ -85,7 +85,7 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
 
 #provision_run_rs = true
 #provision_run_ai = true
-
+provision_run_dl = true
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
