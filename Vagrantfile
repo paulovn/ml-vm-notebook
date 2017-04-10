@@ -1,11 +1,11 @@
 # -*- mode: ruby;  ruby-indent-tabs-mode: t -*-
 # vi: set ft=ruby :
 # **************************************************************************
-# Add specific configuration for running IPython notebooks on a Spark VM
+# Add specific configuration for running IPython notebooks on a VM
 # **************************************************************************
 
 # --------------------------------------------------------------------------
-# Variables defining the configuration of Spark & notebook 
+# Variables defining the configuration of notebook 
 # Modify as needed
 
 # RAM memory used for the VM, in MB
@@ -13,25 +13,16 @@ vm_memory = '2048'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
-# Username that will run all spark processes.
-# If remote (yarn) mode is ever going to be used, it is advisable to change it
-# to a recognizable unique name, so that it is easily identified in the logs
-vm_username = 'vmuser'
-
 # Password to use to access the Notebook web interface 
 vm_password = 'vmuser'
+
+# Username that will run all processes.
+vm_username = 'vmuser'
 
 # The virtual machine exports the port where the notebook process by forwarding
 # it to this port of the local machine
 # So to access the notebook server, you point to http://localhost:<port>
 port_ipython = 8008
-
-# --------------------------------------------------------------------------
-# Variables defining the Spark installation in the base box. 
-# Don't change these
-
-# The place where Spark is deployed inside the local machine
-spark_basedir = '/opt/spark'
 
 
 # --------------------------------------------------------------------------
@@ -75,39 +66,33 @@ Vagrant.configure(2) do |config|
   #config.ssh.username = "vagrant"
 
 
-  config.vm.define "vm-ml-nb64" do |vgrspark|
+  config.vm.define "vm-ml-nb64" do |vgrml|
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 0.9.0"
-    vgrspark.vm.box = "paulovn/ml-base64"
+    vgrml.vm.box_version = "= 0.9.0"
+    vgrml.vm.box = "paulovn/ml-base64"
 
-    # Alternative place: UAM internal
-    #vgrspark.vm.box = "uam/spark-base64"
-    #vgrspark.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
-    # Alternative place: TID internal
-    #vgrspark.vm.box = "tid/spark-base64"
-    #vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
     # Alternative place: local box
-    #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
     # `vagrant box outdated`. This is not recommended.
-    # vgrspark.vm.box_check_update = false
+    # vgrml.vm.box_check_update = false
 
     # Deactivate the usual synced folder and use instead a local subdirectory
-    vgrspark.vm.synced_folder ".", "/vagrant", disabled: true
-    vgrspark.vm.synced_folder "vmfiles", "/vagrant", 
+    vgrml.vm.synced_folder ".", "/vagrant", disabled: true
+    vgrml.vm.synced_folder "vmfiles", "/vagrant", 
       mount_options: ["dmode=775","fmode=664"],
       disabled: false
     #owner: vm_username
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrspark.vm.hostname = "vm-ipnb-ml"
-    vgrspark.vm.provider :virtualbox do |vb|
+    vgrml.vm.hostname = "vm-ipnb-ml"
+    vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
-      vb.name = vgrspark.vm.hostname.to_s
+      vb.name = vgrml.vm.hostname.to_s
       # Customize the amount of memory on the VM
       vb.memory = vm_memory
       # Set the number of CPUs
@@ -121,25 +106,23 @@ Vagrant.configure(2) do |config|
 
     # ---- NAT interface ----
     # NAT port forwarding
-    vgrspark.vm.network :forwarded_port, 
+    vgrml.vm.network :forwarded_port, 
      guest: port_ipython,
      host: port_ipython                  # Notebook UI
 
     # RStudio server
     # =====> uncomment if using RStudio
-    #vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
+    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # Quiver
     # =====> uncomment if using Quiver visualization for Keras
-    #vgrspark.vm.network :forwarded_port, host: 5000, guest: 5000
+    #vgrml.vm.network :forwarded_port, host: 5000, guest: 5000
 
     # ---- bridged interface ----
     # Declare a public network
-    # This enables the machine to be connected from outside, which is a
-    # must for a Spark driver [it needs SPARK_LOCAL_IP to be set to 
-    # the outside-visible interface].
+    # This enables the machine to be connected from outside
     # =====> Uncomment the following two lines to enable bridge mode:
-    #vgrspark.vm.network "public_network",
+    #vgrml.vm.network "public_network",
     #type: "dhcp"
 
     # ===> if the host has more than one interface, we can set which one to use
@@ -151,18 +134,18 @@ Vagrant.configure(2) do |config|
     # ---- private interface ----
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
-    #vgrspark.vm.network "private_network", ip: "192.72.33.10"
+    #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrspark.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
 
 
     # **********************************************************************
-    # Provisioning: install Spark configuration files and startup scripts
+    # Provisioning: install configuration files and startup scripts
 
     # .........................................
-    # Create the user to run Spark jobs (esp. notebook processes)
-    vgrspark.vm.provision "01.nbuser",
+    # Create the user to run jobs (esp. notebook processes)
+    vgrml.vm.provision "01.nbuser",
     type: "shell", 
     privileged: true,
     args: [ vm_username ],
@@ -209,7 +192,7 @@ USEREOF
     # Mount the shared folder with the new created user, so that it can write
     # ---> don't, instead we add the user to the vagrant group and mount the 
     #      shared folder with group permissions
-#    vgrspark.vm.provision "02.mount",
+#    vgrml.vm.provision "02.mount",
 #    type: "shell",
 #    privileged: true,
 #    keep_color: true,
@@ -223,7 +206,7 @@ USEREOF
     # Create the IPython Notebook profile 
     # and install IRKernel, and extensions
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
-    vgrspark.vm.provision "03.nbkernels",
+    vgrml.vm.provision "03.nbkernels",
     type: "shell", 
     privileged: true,
     keep_color: true,    
@@ -259,13 +242,6 @@ EOF
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<-EOF
 PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
-     # Add the SPARK_HOME env variable to R
-     echo "SPARK_HOME=$4/current" >> /home/$USERNAME/.Renviron
-     # Add the SPARK_HOME env variable to the kernel.json file
-     #KERNEL_JSON="${KDIR}/ir/kernel.json"
-     #ENVLINE='  "env": { "SPARK_HOME": "'$4'/current" },'
-     #POS=$(sed -n '/"argv"/=' $KERNEL_JSON)
-     #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
 EOF
 
      # --------------------- Install the notebook extensions
@@ -284,8 +260,7 @@ EOF
 
     # .........................................
     # Install the Notebook startup script & configure it
-    # Configure Spark execution mode & remote access if defined
-    vgrspark.vm.provision "04.nbconfig",
+    vgrml.vm.provision "04.nbconfig",
     type: "shell", 
     privileged: true,
     keep_color: true,    
@@ -310,7 +285,7 @@ EOF
 
     # .........................................
     # Install the neuralnet R package
-    # vgrspark.vm.provision "neuralnet",
+    # vgrml.vm.provision "neuralnet",
     # type: "shell",
     # keep_color: true,
     # privileged: true,
@@ -329,7 +304,7 @@ EOF
     # PROVISION_RSTUDIO when creating or by --provision-with rstudio) 
     # *** Don't forget to also uncomment forwarding for port 8787!
     if (provision_run_rs)
-      vgrspark.vm.provision "rstudio",
+      vgrml.vm.provision "rstudio",
       type: "shell",
       keep_color: true,
       privileged: true,
@@ -359,7 +334,7 @@ EOF
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_NBC when creating or by --provision-with nbc) 
     if (provision_run_nbc)
-      vgrspark.vm.provision "nbc",
+      vgrml.vm.provision "nbc",
       type: "shell",
       privileged: true,
       keep_color: true,
@@ -395,7 +370,7 @@ EOF
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_AI when creating or by --provision-with ai) 
     if (provision_run_ai)
-      vgrspark.vm.provision "ai",
+      vgrml.vm.provision "ai",
       type: "shell",
       privileged: true,
       keep_color: true,
@@ -422,7 +397,7 @@ EOF
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_DL when creating or by --provision-with dl) 
     if (provision_run_dl)
-      vgrspark.vm.provision "dl",
+      vgrml.vm.provision "dl",
       type: "shell",
       privileged: false,
       keep_color: true,
@@ -451,7 +426,7 @@ EOF
     # this way it works.
     # [An alternative would be to force mounting on startup, by adding the
     # vboxsf mount point to /etc/fstab during provisioning]
-    vgrspark.vm.provision "50.nbstart", 
+    vgrml.vm.provision "50.nbstart", 
       type: "shell", 
       run: "always",
       privileged: true,
