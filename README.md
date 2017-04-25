@@ -1,9 +1,9 @@
 # Spark Virtual Machine
 
-A 64 bit virtual machine for Machine Learning/Data Science tasks. 
+A 32 bit virtual machine for Machine Learning/Data Science tasks. 
 Generated and provisioned with Vagrant.
 
-This instance builds on the `spark-base64` VM (which already provides all 
+This instance builds on the `spark-base32` VM (which already provides all 
 the needed software packages). On top of that, it configures and launches a
 Jupyter Notebook process, exported as an HTTP service to a local port. It 
 allows creating notebooks with four different kernels:
@@ -17,10 +17,10 @@ The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 2.0.2
-* Python 2.7.5
-* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, theano+keras, mpld3, seaborn) plus IPython 5 + Jupyter notebook
-* R 3.3.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* [Apache Spark](http://spark.apache.org/) 2.1.0
+* Python 2.7
+* A virtualenv for Python 2.7 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, tensorflow+theano+keras, mpld3, seaborn) plus IPython 5 + Jupyter notebook
+* R 3.4.0 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
 * Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
@@ -39,8 +39,9 @@ saving it will make it work in future executions.
 ### Requirements
 
 * Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), 
-  and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
-  Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
+  and around 10 GB of hard disk space, with a 32-bit Windows (7 or above), 
+  Linux 32 bits (Ubuntu, RedHat/CentOS, etc). Note: for a 64-bit host, it is
+  better to use the main branch of the project, which is designed for 64 bit.
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
   * [Vagrant](https://www.vagrantup.com/) 1.7.4 or above
