@@ -104,13 +104,13 @@ Vagrant.configure(2) do |config|
   #config.ssh.username = "vagrant"
 
 
-  config.vm.define "vm-spark-nb64" do |vgrml|
+  config.vm.define "vm-spark-nb32" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box_version = "= 1.9.7"
-    vgrml.vm.box = "paulovn/spark-base64"
+    vgrml.vm.box = "paulovn/spark-base32"
 
     # Alternative place: UAM internal
     #vgrml.vm.box = "uam/spark-base64"
@@ -119,7 +119,7 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.box = "tid/spark-base64"
     #vgrml.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
     # Alternative place: local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base32-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -135,7 +135,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrml.vm.hostname = "vm-ipnb-spark"
+    vgrml.vm.hostname = "vm-ipnb-spark32"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -154,7 +154,8 @@ Vagrant.configure(2) do |config|
     # NAT port forwarding
     vgrml.vm.network :forwarded_port, 
      guest: port_ipython,
-     host: port_ipython                  # Notebook UI
+     host: port_ipython,                  # Notebook UI
+     auto_correct: true
     # Spark driver UI
     vgrml.vm.network :forwarded_port, host: 4040, guest: 4040, 
      auto_correct: true
@@ -211,7 +212,7 @@ Vagrant.configure(2) do |config|
     privileged: true,
     args: [ vm_username ],
     inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1" -s /bin/bash
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -347,7 +348,7 @@ EOF
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<-EOF
-PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
+     PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
      # Add the SPARK_HOME env variable to R
      echo "SPARK_HOME=$4/current" >> /home/$USERNAME/.Renviron
      # Add the SPARK_HOME env variable to the kernel.json file
@@ -382,13 +383,16 @@ EOF
             spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
      # Link the IPython mgr script so that it can be found by root
-     chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
-     rm -f /usr/sbin/notebook
-     ln -s /opt/ipnb/bin/jupyter-notebook-mgr /usr/sbin
+     SCR=jupyter-notebook-mgr
+     chmod 775 /opt/ipnb/bin/$SCR
+     rm -f /usr/sbin/$SCR
+     ln -s /opt/ipnb/bin/$SCR /usr/sbin
      # note we do not enable the service -- we will explicitly start it at the end
 
      # Create the config for IPython notebook
-     cat <<-EOF > /etc/sysconfig/jupyter-notebook
+     CFGD=/etc/sysconfig/
+     test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
+     cat <<-EOF > $CFGD/jupyter-notebook
 NOTEBOOK_USER="$2"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
@@ -435,10 +439,11 @@ EOF
       args: [ vm_username, vm_password ],
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
+        apt-get install gdebi-core
         # Download & install the RPM for RStudio server
-        PKG=rstudio-server-rhel-1.0.136-x86_64.rpm
-        wget --no-verbose https://s3.amazonaws.com/rstudio-dailybuilds/$PKG
-        yum install -y --nogpgcheck $PKG
+        PKG=rstudio-server-1.0.143-i386.deb
+        wget --no-verbose https://download2.rstudio.org/$PKG
+        gdebi $PKG
         rm $PKG
         # Define the directory for the user library
         CNF=/etc/rstudio/rsession.conf
@@ -452,6 +457,7 @@ EOF
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
       SHELL
     end
+    
 
     # .........................................
     # Install the necessary components for nbconvert to work.
@@ -465,7 +471,7 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          yum install -y pandoc inkscape texlive-xetex texlive-xetex-def
+          apt-get install -y pandoc inkscape texlive-xetex
           sudo -i -u vagrant pip install pandoc
           DIR=$(kpsewhich -var-value TEXMFLOCAL)
           mkdir -p $DIR
@@ -501,7 +507,7 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
         echo "Installing packages for AI course"
-        yum -y install python27-tkinter
+        apt-get install -y python-tk
         su -l "vagrant" <<-EOF
          pip install nltk
          pip install aimlbotkernel
@@ -550,7 +556,8 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
         # Install sbt
-        wget https://bintray.com/sbt/rpm/rpm -O /etc/yum.repos.d/bintray-sbt-rpm.repo && yum -y install sbt
+        echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
+        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update & apt-get install sbt
         # Install scala-mode for Emacs
         echo "Configuring scala-mode in Emacs" 
         cat <<EOF >> /home/$1/.emacs
@@ -568,29 +575,6 @@ EOF
          chown $1.$1 /home/$1/.emacs
       SHELL
     end
-
-    # .........................................
-    # Install some Deep Learning stuff
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_DL when creating or by --provision-with dl) 
-    if (provision_run_dl)
-      vgrml.vm.provision "dl",
-      type: "shell",
-      privileged: false,
-      keep_color: true,
-      inline: <<-SHELL
-         sudo yum install -y git
-         #TF_BINARY=tensorflow-0.11.0-cp27-none-linux_x86_64.whl
-         #URL=https://storage.googleapis.com/tensorflow/linux/cpu/$TF_BINARY
-         #wget $URL
-         #pip install --upgrade $TF_BINARY
-         pip install --upgrade tensorflow
-         pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
-         pip install --upgrade keras quiver
-         sudo yum remove -y git 
-       SHELL
-    end
-
 
     # *************************************************************************
 
