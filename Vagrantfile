@@ -25,7 +25,7 @@ vm_username = 'vmuser'
 # The virtual machine exports the port where the notebook process by
 # forwarding it to this port of the local machine
 # So to access the notebook server, you point to http://localhost:<port>
-port_ipython = 8008
+port_nb = 8008
 
 # Note there is an additional port exported: the Spark UI driver is
 # forwarded to port 4040
@@ -73,7 +73,8 @@ vagrant_command = ARGV[0]
 provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('rstudio'))
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && ARGV.include?('nbc'))
+        (vagrant_command == 'provision' && \
+           (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('ai'))
 provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
@@ -89,6 +90,8 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
+
+port_nb_internal = 8008
 
 # The "2" in Vagrant.configure sets the configuration version
 Vagrant.configure(2) do |config|
@@ -109,8 +112,8 @@ Vagrant.configure(2) do |config|
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrml.vm.box_version = "= 1.9.7"
     vgrml.vm.box = "paulovn/spark-base64"
+    vgrml.vm.box_version = "= 1.9.7"
 
     # Alternative place: UAM internal
     #vgrml.vm.box = "uam/spark-base64"
@@ -153,8 +156,9 @@ Vagrant.configure(2) do |config|
     # ---- NAT interface ----
     # NAT port forwarding
     vgrml.vm.network :forwarded_port, 
-     guest: port_ipython,
-     host: port_ipython                  # Notebook UI
+     #auto_correct: true,
+     guest: port_nb_internal,
+     host: port_nb                  # Notebook UI
     # Spark driver UI
     vgrml.vm.network :forwarded_port, host: 4040, guest: 4040, 
      auto_correct: true
@@ -198,7 +202,7 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
 
 
     # **********************************************************************
@@ -267,12 +271,12 @@ USEREOF
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
     # and install all kernels: Pyspark, Toree (Scala), IRKernel, and extensions
-    # Prepared for IPython 4 (so that we configure as a Jupyter app)
+    # Prepared for IPython >=4 (so that we configure as a Jupyter app)
     vgrml.vm.provision "03.nbkernels",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username, vm_password, port_ipython, spark_basedir ],
+    args: [ vm_username, vm_password, port_nb_internal, spark_basedir ],
     inline: <<-SHELL
 
     USERNAME=$1
@@ -378,30 +382,30 @@ EOF
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ spark_basedir, vm_username, spark_mode,
-            spark_master, spark_namenode, spark_history_server ],
+    args: [ vm_username,
+            spark_mode, spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
      # Link the IPython mgr script so that it can be found by root
      chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
      rm -f /usr/sbin/notebook
      ln -s /opt/ipnb/bin/jupyter-notebook-mgr /usr/sbin
-     # note we do not enable the service -- we will explicitly start it at the end
+     # note we do not enable the service -- we'll explicitly start it at the end
 
      # Create the config for IPython notebook
      cat <<-EOF > /etc/sysconfig/jupyter-notebook
-NOTEBOOK_USER="$2"
+NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
 
      # Configure remote addresses
-     if [ "$4" ]; then
-       jupyter-notebook-mgr set-addr yarn "$4" "$5" "$6"
-       jupyter-notebook-mgr set-addr standalone "$4" "$5" "$6"
+     if [ "$3" ]; then
+       jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
+       jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
      fi 
 
      # Set the name of the initially active config
-     echo "Configuring Spark mode as: $3"
-     jupyter-notebook-mgr set-mode "$3"
+     echo "Configuring Spark mode as: $2"
+     jupyter-notebook-mgr set-mode "$2"
   SHELL
 
     # *************************************************************************
@@ -456,7 +460,7 @@ EOF
     # .........................................
     # Install the necessary components for nbconvert to work.
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_NBC when creating or by --provision-with nbc) 
+    # PROVISION_NBC when creating or by --provision-with nbc)
     if (provision_run_nbc)
       vgrml.vm.provision "nbc",
       type: "shell",
@@ -485,8 +489,27 @@ EOF
           texhash
           # Finally we modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
-          sed -i -e 's/\(\geometry{\)/\1a4paper,/' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's|(\\\\geometry{)|${1}a4paper,|' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
+
+      # .........................................
+      # Optional: modify nbconvert to process Spanish documents
+      vgrml.vm.provision "nbc.es",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+          LANGUAGE=spanish
+          CODE=es
+          echo "** Adding support for $LANGUAGE to LaTeX"
+          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
+          sudo yum install -y texlive-polyglossia texlive-euenc texlive-hyph-utf8
+          LANGDAT=$(kpsewhich language.dat)
+          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
+          echo "** Converting base LaTeX template for $LANGUAGE"
+          perl -pi -e 's(\\\\usepackage\\[T1\\]{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]{inputenc}#%--removed--#;' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
+      SHELL
+
     end
 
     # .........................................
