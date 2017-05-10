@@ -22,7 +22,7 @@ vm_username = 'vmuser'
 # The virtual machine exports the port where the notebook process by forwarding
 # it to this port of the local machine
 # So to access the notebook server, you point to http://localhost:<port>
-port_ipython = 8008
+port_nb = 8008
 
 
 # --------------------------------------------------------------------------
@@ -35,7 +35,8 @@ vagrant_command = ARGV[0]
 provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('rstudio'))
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && ARGV.include?('nbc'))
+        (vagrant_command == 'provision' && \
+           (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
 provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('ai'))
 provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
@@ -51,6 +52,8 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
+
+port_nb_internal = 8008
 
 # The "2" in Vagrant.configure sets the configuration version
 Vagrant.configure(2) do |config|
@@ -69,11 +72,10 @@ Vagrant.configure(2) do |config|
   config.vm.define "vm-ml-nb64" do |vgrml|
 
     # The base box we are using. As fetched from ATLAS
-    vgrml.vm.box_version = "= 0.9.0"
     vgrml.vm.box = "paulovn/ml-base64"
-
-    # Alternative place: local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    vgrml.vm.box_version = "= 0.9.0"
+    # Alternative place: box elsewhere
+    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-090-box"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -107,8 +109,9 @@ Vagrant.configure(2) do |config|
     # ---- NAT interface ----
     # NAT port forwarding
     vgrml.vm.network :forwarded_port, 
-     guest: port_ipython,
-     host: port_ipython                  # Notebook UI
+     #auto_correct: true,
+     guest: port_nb_internal,
+     host: port_nb                  # Notebook UI
 
     # RStudio server
     # =====> uncomment if using RStudio
@@ -137,7 +140,7 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
 
 
     # **********************************************************************
@@ -210,7 +213,7 @@ USEREOF
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username, vm_password, port_ipython ],
+    args: [ vm_username, vm_password, port_nb_internal ],
     inline: <<-SHELL
 
      USERNAME=$1
@@ -332,7 +335,7 @@ EOF
     # .........................................
     # Install the necessary components for nbconvert to work.
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_NBC when creating or by --provision-with nbc) 
+    # PROVISION_NBC when creating or by --provision-with nbc)
     if (provision_run_nbc)
       vgrml.vm.provision "nbc",
       type: "shell",
@@ -361,8 +364,27 @@ EOF
           texhash
           # Finally we modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
-          sed -i -e 's/\(\geometry{\)/\1a4paper,/' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's|(\\\\geometry{)|${1}a4paper,|' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
+
+      # .........................................
+      # Optional: modify nbconvert to process Spanish documents
+      vgrml.vm.provision "nbc.es",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+          LANGUAGE=spanish
+          CODE=es
+          echo "** Adding support for $LANGUAGE to LaTeX"
+          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
+          sudo yum install -y texlive-polyglossia texlive-euenc texlive-hyph-utf8
+          LANGDAT=$(kpsewhich language.dat)
+          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
+          echo "** Converting base LaTeX template for $LANGUAGE"
+          perl -pi -e 's(\\\\usepackage\\[T1\\]{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]{inputenc}#%--removed--#;' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
+      SHELL
+
     end
 
     # .........................................
