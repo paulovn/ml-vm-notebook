@@ -85,7 +85,7 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('dl'))
 
 #provision_run_ai = true
-provision_run_rs = true
+#provision_run_rs = true
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
@@ -412,7 +412,7 @@ EOF
 
     # .........................................
     # Install the neuralnet R package
-    vgrspark.vm.provision "neuralnet",
+    vgrml.vm.provision "neuralnet",
     type: "shell",
     keep_color: true,
     privileged: true,
