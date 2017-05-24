@@ -75,7 +75,6 @@ saving it will make it work in future executions.
    messages to the terminal.
 
 The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM.
-
 The default URL in the Vagrantfile points to a box publicly available in ATLAS,
 so there should be no problem as long as there is a working Internet connection.
 
