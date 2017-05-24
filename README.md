@@ -50,7 +50,7 @@ saving it will make it work in future executions.
 
 1. Copy the Vagrantfile + examples into the computer, either by cloning the 
    repository or by downloading and extracting all files in the packaged
-   [ZIP file](https://github.com/paulovn/ml-vm-notebook/archive/develop.zip). 
+   [ZIP file](https://github.com/paulovn/ml-vm-notebook/archive/feature/32bit.zip). 
    Make sure to use a disk or partition with the mentioned 10 GB of free space.
    Also, in Windows it might be advisable to avoid using a folder name with
    spaces (since sometimes it causes problems).
