@@ -75,12 +75,14 @@ provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
         (vagrant_command == 'provision' && \
            (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
-provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('ai'))
+provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('nlp'))
+provision_run_krn  = ENV['PROVISION_KERNELS'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('kernels'))
 provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('mvn'))
-provision_run_scaladev = ENV['PROVISION_SBT'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('scaladev'))
+provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('scala'))
 provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('dl'))
 
@@ -113,7 +115,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 1.9.7"
+    vgrml.vm.box_version = "= 2.0.0"
 
     # Alternative place: UAM internal
     #vgrml.vm.box = "uam/spark-base64"
@@ -122,7 +124,7 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.box = "tid/spark-base64"
     #vgrml.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
     # Alternative place: local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -138,7 +140,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrml.vm.hostname = "vm-ipnb-spark"
+    vgrml.vm.hostname = "vgr-ipnb-spark"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -168,7 +170,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> uncomment if using RStudio
-    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
+    vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # Quiver
     # =====> uncomment if using Quiver visualization for Keras
@@ -215,7 +217,7 @@ Vagrant.configure(2) do |config|
     privileged: true,
     args: [ vm_username ],
     inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -236,8 +238,9 @@ ENDPROFILE
       su -l "$1" <<'USEREOF'
 for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
-rm -f bin/{python,python2.7,pip,ipython,jupyter}
-ln -s /opt/ipnb/bin/{python,python2.7,pip,ipython,jupyter} bin
+PYVER=$(ls -d /opt/ipnb/lib/python?.? | xargs -n1 basename)
+rm -f bin/{python,$PYVER.7,pip,ipython,jupyter}
+ln -s /opt/ipnb/bin/{python,$PYVER,pip,ipython,jupyter} bin
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
 cat <<'BASHRC' >> .bashrc
 # Place where to keep user R packages
@@ -283,7 +286,7 @@ USEREOF
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
-     PWD=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print passwd('$2')")
+     PWD=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
      cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 c = get_config()
 # define server
@@ -311,7 +314,7 @@ EOF
 mkdir -p "${KDIR}/${KERNEL_NAME}"
 cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
 {
-    "display_name": "Pyspark (Py 2)",
+    "display_name": "Pyspark (Py3)",
     "language_info": { "name": "python",
                        "codemirror_mode": { "name": "ipython", "version": 2 }
                      },
@@ -351,7 +354,7 @@ EOF
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<-EOF
-PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
+     PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
      # Add the SPARK_HOME env variable to R
      echo "SPARK_HOME=$4/current" >> /home/$USERNAME/.Renviron
      # Add the SPARK_HOME env variable to the kernel.json file
@@ -364,12 +367,12 @@ EOF
      # --------------------- Install the notebook extensions
      echo "Installing notebook extensions"
      su -l "$USERNAME" <<-EOF
-python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
-     ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python2.7/site-packages
+/opt/ipnb/bin/python -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
+     ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python?.?/site-packages
 EOF
 
      # --------------------- Put the custom Jupyter icon in place
-     cd /opt/ipnb/lib/python2.7/site-packages/notebook/static/base/images
+     cd /opt/ipnb/lib/python?.?/site-packages/notebook/static/base/images
      mv favicon.ico favicon-orig.ico
      ln -s favicon-custom.ico favicon.ico
 
@@ -386,13 +389,16 @@ EOF
             spark_mode, spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
      # Link the IPython mgr script so that it can be found by root
-     chmod 775 /opt/ipnb/bin/jupyter-notebook-mgr
-     rm -f /usr/sbin/notebook
-     ln -s /opt/ipnb/bin/jupyter-notebook-mgr /usr/sbin
+     SCR=jupyter-notebook-mgr
+     chmod 775 /opt/ipnb/bin/$SCR
+     rm -f /usr/sbin/$SCR
+     ln -s /opt/ipnb/bin/$SCR /usr/sbin
      # note we do not enable the service -- we'll explicitly start it at the end
 
      # Create the config for IPython notebook
-     cat <<-EOF > /etc/sysconfig/jupyter-notebook
+     CFGD=/etc/sysconfig/
+     test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
+     cat <<-EOF > $CFGD/jupyter-notebook
 NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
@@ -412,21 +418,6 @@ EOF
     # Optional packages
 
     # .........................................
-    # Install the neuralnet R package
-    # vgrml.vm.provision "neuralnet",
-    # type: "shell",
-    # keep_color: true,
-    # privileged: true,
-    # inline: <<-SHELL
-    #  echo "Installing R packages"
-    #  for pkg in '"neuralnet"'
-    #  do
-    #      echo -e "\nInstalling R packages: $pkg"
-    #      Rscript -e "install.packages(c($pkg),dependencies=TRUE,repos=c('http://ftp.cixug.es/CRAN/','http://cran.es.r-project.org/'),quiet=FALSE)"
-    #  done
-    # SHELL
-
-    # .........................................
     # Install RStudio server
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_RSTUDIO when creating or by --provision-with rstudio) 
@@ -439,18 +430,18 @@ EOF
       args: [ vm_username, vm_password ],
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
-        # Download & install the RPM for RStudio server
-        PKG=rstudio-server-rhel-1.0.136-x86_64.rpm
-        wget --no-verbose https://s3.amazonaws.com/rstudio-dailybuilds/$PKG
-        yum install -y --nogpgcheck $PKG
-        rm $PKG
+        apt-get install -y gdebi-core
+        # Download & install the package for RStudio Server
+        PKG=rstudio-server-1.0.153-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/$PKG
+        gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library
         CNF=/etc/rstudio/rsession.conf
         grep -q r-libs-user $CNF || echo "r-libs-user=~/.Rlibrary" >> $CNF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
-        echo "$2" | passwd --stdin "$1"
+        echo "$1:$2" | chpasswd
         # Send message
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
@@ -469,27 +460,10 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          yum install -y pandoc inkscape texlive-xetex texlive-xetex-def
-          sudo -i -u vagrant pip install pandoc
-          DIR=$(kpsewhich -var-value TEXMFLOCAL)
-          mkdir -p $DIR
-          cd $DIR
-          for p in collectbox adjustbox; do
-            wget --no-verbose http://mirrors.ctan.org/install/macros/latex/contrib/$p.tds.zip
-            unzip -o $p.tds.zip
-            rm $p.tds.zip
-          done
-          # The LaTeX generated by nbconvert uses the ulem & upquote packages
-          # But they are not available as tds install packages. And ulem
-          # has a RPM package tex(ulem), but upquote does not
-          cd tex/latex
-          for p in ulem upquote; do
-            wget --no-verbose http://mirrors.ctan.org/macros/latex/contrib/$p/$p.sty
-          done
-          texhash
-          # Finally we modify the LaTeX template to generate A4 pages
+          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
+          # We modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
-          perl -pi -e 's|(\\\\geometry{)|${1}a4paper,|' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
 
       # .........................................
@@ -499,37 +473,50 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
+          # Define language
           LANGUAGE=spanish
           CODE=es
           echo "** Adding support for $LANGUAGE to LaTeX"
           # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
-          sudo yum install -y texlive-polyglossia texlive-euenc texlive-hyph-utf8
+          #sudo yum install -y texlive-polyglossia texlive-euenc texlive-hyph-utf8
           LANGDAT=$(kpsewhich language.dat)
           sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
           echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's(\\\\usepackage\\[T1\\]{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]{inputenc}#%--removed--#;' /opt/ipnb/lib/python2.7/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
 
     end
 
     # .........................................
-    # Install the additional packages for the AI course
+    # Install additional packages for NLP
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_AI when creating or by --provision-with ai) 
-    if (provision_run_ai)
-      vgrml.vm.provision "ai",
+    # PROVISION_NLP when creating or by --provision-with nlp) 
+    if (provision_run_nlp)
+      vgrml.vm.provision "nlp",
       type: "shell",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        echo "Installing packages for AI course"
-        yum -y install python27-tkinter
-        su -l "vagrant" <<-EOF
-         pip install nltk
-         pip install aimlbotkernel
-         pip install sparqlkernel
-EOF
+        echo "Installing additional NLP packages"
+        # pattern is Python 2 only
+        su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
+      SHELL
+    end
+
+    # .........................................
+    # Install a couple of additional Jupyter kernels
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_KRN when creating or by --provision-with kernels) 
+    if (provision_run_krn)
+      vgrml.vm.provision "kernels",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Installing additional kernels"
+        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
         su -l "$1" <<-EOF
          echo "Installing AIML-BOT & SPARQL kernels"
          jupyter aimlbotkernel install --user
@@ -538,7 +525,7 @@ EOF
 
       SHELL
     end
-
+    
     # .........................................
     # Install Maven
     # Do it only if explicitly requested (either by environment variable 
@@ -564,16 +551,26 @@ EOF
       SHELL
     end
 
-    # Install a couple of utilities for Scala development
-    if (provision_run_scaladev)
-      vgrml.vm.provision "scaladev",
+    # Install Scala development tools
+    if (provision_run_scala)
+      vgrml.vm.provision "scala",
       type: "shell",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
+        # Download & install Scala
+        cd install
+        VERSION=2.11.8
+        PKG=scala-$VERSION.deb
+        echo "Downloading & installing Scala $VERSION"
+        wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
+        sudo dpkg -i $PKG && rm $PKG 
         # Install sbt
-        wget https://bintray.com/sbt/rpm/rpm -O /etc/yum.repos.d/bintray-sbt-rpm.repo && yum -y install sbt
+        echo "Installing sbt"
+        # Install sbt
+        echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
+        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
         # Install scala-mode for Emacs
         echo "Configuring scala-mode in Emacs" 
         cat <<EOF >> /home/$1/.emacs
@@ -592,6 +589,7 @@ EOF
       SHELL
     end
 
+
     # .........................................
     # Install some Deep Learning stuff
     # Do it only if explicitly requested (either by environment variable 
@@ -602,15 +600,11 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         sudo yum install -y git
-         #TF_BINARY=tensorflow-0.11.0-cp27-none-linux_x86_64.whl
-         #URL=https://storage.googleapis.com/tensorflow/linux/cpu/$TF_BINARY
-         #wget $URL
-         #pip install --upgrade $TF_BINARY
+         sudo apt-get install -y git
          pip install --upgrade tensorflow
          pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
          pip install --upgrade keras quiver
-         sudo yum remove -y git 
+         sudo apt-get remove -y git 
        SHELL
     end
 
@@ -633,7 +627,7 @@ EOF
       keep_color: true,    
       inline: "systemctl start notebook"
 
-
   end # config.vm.define
+
 
 end

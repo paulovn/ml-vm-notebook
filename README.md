@@ -7,9 +7,9 @@ This instance builds on the `spark-base64` VM (which already provides all
 the needed software packages). On top of that, it configures and launches a
 Jupyter Notebook process, exported as an HTTP service to a local port. It 
 allows creating notebooks with four different kernels:
-  * Python 2.7 (plain Python, with additional libraries such as NumPy, SciPy,
-    Pandas, Matplotlib, Scikit-learn), 
-  * Pyspark (Python 2.7 + libraries + Spark),
+  * Python 3.5 (plain Python, with additional libraries such as NumPy, SciPy,
+    Pandas, Matplotlib, Scikit-learn, etc), 
+  * Pyspark (Python 3.5 + libraries + Spark),
   * Scala 2.11 + Spark
   * R (with SparkR available, though not loaded by default).
 
@@ -17,16 +17,16 @@ The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 2.1.0
-* Python 2.7.5
-* A virtualenv for Python 2.7.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, mpld3, seaborn) plus IPython 5 + Jupyter notebook
-* R 3.3.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
-* Spark notebook Kernels for Python 2.7, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 2.7 kernel.
+* [Apache Spark](http://spark.apache.org/) 2.2.0
+* Python 3.5.2
+* A virtualenv for Python 3.5.2 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, mpld3, seaborn, pylucene and a few others) plus IPython 5 + Jupyter notebook
+* R 3.4.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* Spark notebook Kernels for Python 3.5, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.5 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware.
-To develop notebooks in Python for Spark, the `Pyspark (Py 2)` kernel must be
+To develop notebooks in Python for Spark, the `Pyspark (Py 3)` kernel must be
 specifically selected. Hence Spark Python Notebooks that were created elsewhere
 (or with former versions of this VM) will not work initially. 
 They can be made to work by changing its kernel (use the option in the menubar)
@@ -43,7 +43,7 @@ saving it will make it work in future executions.
   Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
-  * [Vagrant](https://www.vagrantup.com/) 1.7.4 or above
+  * [Vagrant](https://www.vagrantup.com/) 1.8 or above
 
 ### Process
 
@@ -199,3 +199,28 @@ of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
   * Jupyter notebook listens on port 8008 with a very trivial password.
     (if the host computer has no firewall, it can be accessed from anywhere)
+
+## Extra packages
+
+There are a number of packages that have been defined in the `Vagrantfile` but
+that are not automatically installed. Instead, they must be explicitly
+provisioned with:
+
+      vagrant provision --provision-with <pkgname>
+
+It includes the following list:
+
+| name | package contents |
+| ---- | ---------------- |
+| rstudio | RStudio Server. See below for details |
+| nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
+| nbc.es | Configure Notebook conversion to documents for Spanish |
+| nlp | Some additional Python packages for Natural Language Processing |
+| mvn | Maven build automation tool for Java |
+| scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
+| dl | Deep Learning libraries (Keras, Theano, Tensorflow) |
+
+
+Note: for RStudio it will be also necessary to open port 8787 in the
+Vagrantfile and reload it. The user/password combination to be used is "vmuser"
+& "vmuser"
