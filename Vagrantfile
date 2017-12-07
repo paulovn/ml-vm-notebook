@@ -175,7 +175,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> uncomment if using RStudio
-    vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
+    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # Quiver
     # =====> uncomment if using Quiver visualization for Keras
