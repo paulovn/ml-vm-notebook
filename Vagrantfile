@@ -88,9 +88,7 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
 provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('graphframes'))
 
-#provision_run_rs = true
-#provision_run_ai = true
-
+provision_run_rs = true
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
@@ -175,7 +173,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> uncomment if using RStudio
-    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
+    vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # Quiver
     # =====> uncomment if using Quiver visualization for Keras
