@@ -4,9 +4,9 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `spark-base64` VM (which already provides all 
-the needed software packages). On top of that, it configures and launches a
-Jupyter Notebook process, exported as an HTTP service to a local port. It 
-allows creating notebooks with four different kernels:
+the needed software packages, on an Ubuntu 16.04). On top of that, it configures
+and launches a Jupyter Notebook process, exported as an HTTP service to a local
+port. It allows creating notebooks with four different kernels:
   * Python 3.5 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
   * Pyspark (Python 3.5 + libraries + Spark),
@@ -73,9 +73,8 @@ saving it will make it work in future executions.
 5. Then the VM will be started and provisioned. The process will print progress
    messages to the terminal.
 
-The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM.
-
-The default URL in the Vagrantfile points to a box publicly available in ATLAS,
+The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM. The
+default URL in the Vagrantfile points to a box publicly available in ATLAS,
 so there should be no problem as long as there is a working Internet connection.
 
 
@@ -103,7 +102,7 @@ the host and the VM:
    the VM).
 
 The Jupyter notebook server starts automatically. It can be managed
-(start/stop/restart) in a console session (see below) via:
+(start/stop/restart) in a VM console session (see below) via:
 
     sudo systemctl (start | stop | restart) notebook
 
@@ -139,7 +138,7 @@ last case it will be `vagrant`.
   running the Jupyter Notebook server), including Spark command-line 
   applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as well as
   Python commands (use either `ipython` or `python`, which points to the
-  virtualenv where all is intalled).
+  virtualenv where all is installed).
 * The `vagrant` user is intended for administrative tasks (and is the owner of
   all the installed Python & Spark stack).
 
@@ -196,7 +195,7 @@ and this is overwritten with a private key when launched for the first time, so
 ssh connections with certificate are more or less secure. But there are a number
 of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
-  * Jupyter notebook listens on port 8008 with a very trivial password.
+  * Jupyter notebook listens on port 8008 with a very trivial password
     (if the host computer has no firewall, it can be accessed from anywhere)
 
 ## Extra packages
@@ -218,9 +217,9 @@ It includes the following list:
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
 | dl | Deep Learning libraries (Keras, Theano, Tensorflow) |
-| graphframes | Activate/deactivate GraphFrames (already inside the VM) |
+| graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 
 
 Note: for RStudio it will be also necessary to open port 8787 in the
-Vagrantfile and reload it. The user/password combination to be used is "vmuser"
-& "vmuser"
+Vagrantfile and reload it. The user/password combination to be used is `vmuser`
+& `vmuser`
