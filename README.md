@@ -19,9 +19,9 @@ The contents of the VM are:
 
 * [Apache Spark](http://spark.apache.org/) 2.2.0
 * Python 3.5.2
-* A virtualenv for Python 3.5.2 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, mpld3, seaborn, pylucene and a few others) plus IPython 5 + Jupyter notebook
-* R 3.4.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
-* Spark notebook Kernels for Python 3.5, Scala ([Toree](https://toree.incubator.apache.org/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.5 kernel.
+* A virtualenv for Python 3.5.2 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 5 + Jupyter notebook
+* R 3.4.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* Spark notebook Kernels for Python 3.5, Scala ([SPylon](https://github.com/maxpoint/spylon-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.5 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
 
@@ -188,7 +188,6 @@ should be commented out; this would revert Spark to the default behaviour of
 creating the metastore in the local directory in which the Notebook is running
 (hence there can be more than one active Notebook running Spark SQL, provided
 that they are in different directories).
- 
 
 ### Security
 
@@ -206,7 +205,7 @@ There are a number of packages that have been defined in the `Vagrantfile` but
 that are not automatically installed. Instead, they must be explicitly
 provisioned with:
 
-      vagrant provision --provision-with <pkgname>
+      vagrant provision --provision-with <name>
 
 It includes the following list:
 
@@ -219,6 +218,7 @@ It includes the following list:
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
 | dl | Deep Learning libraries (Keras, Theano, Tensorflow) |
+| graphframes | Activate/deactivate GraphFrames (already inside the VM) |
 
 
 Note: for RStudio it will be also necessary to open port 8787 in the
