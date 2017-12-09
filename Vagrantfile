@@ -153,7 +153,7 @@ Vagrant.configure(2) do |config|
 
     # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
     # check the correct additions version when booting this machine
-    vgrml.vbguest.auto_update = false
+    #vgrml.vbguest.auto_update = false
     
     # **********************************************************************
     # Networking
