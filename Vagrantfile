@@ -1,4 +1,4 @@
-# -*- mode: ruby -*-
+# -*- mode: ruby;  ruby-indent-tabs-mode: t -*-
 # vi: set ft=ruby :
 # **************************************************************************
 # Add specific configuration for running IPython notebooks on a Spark VM
@@ -13,18 +13,22 @@ vm_memory = '2048'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
+# Password to use to access the Notebook web interface 
+vm_password = 'vmuser'
+
 # Username that will run all spark processes.
-# If remote (yarn) mode is ever going to be used, it is advisable to change it
-# to a recognizable unique name, so that it is easily identified in the logs
+# (if remote (yarn) mode is ever going to be used, it is advisable to change
+# it to a recognizable unique name, so that it is easily identified in the
+# server logs)
 vm_username = 'vmuser'
 
-# The virtual machine exports the port where the notebook process by forwarding
-# it to this port of the local machine
+# The virtual machine exports the port where the notebook process by
+# forwarding it to this port of the local machine
 # So to access the notebook server, you point to http://localhost:<port>
-port_ipython = 8008
+port_nb = 8008
 
-# Note there is an additional port exported: the Spark UI driver is forwarded 
-# to port 4040
+# Note there is an additional port exported: the Spark UI driver is
+# forwarded to port 4040
 
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
@@ -67,21 +71,36 @@ vagrant_command = ARGV[0]
 
 # Conditionally activate some provision sections
 provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('20.rstudio'))
+        (vagrant_command == 'provision' && ARGV.include?('rstudio'))
 provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && ARGV.include?('21.nbc'))
-provision_run_ai  = ENV['PROVISION_AI'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('22.ai'))
+        (vagrant_command == 'provision' && \
+           (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
+provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('nlp'))
+provision_run_krn  = ENV['PROVISION_KERNELS'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('kernels'))
+provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('mvn'))
+provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('scala'))
+provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('dl'))
+provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('graphframes'))
+
+#provision_run_rs = true
 #provision_run_ai = true
 
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
 
+port_nb_internal = 8008
+
 # The "2" in Vagrant.configure sets the configuration version
 Vagrant.configure(2) do |config|
 
-  # This is to avoid Vagrant inserting a new SSH key, insetad of the 
+  # This is to avoid Vagrant inserting a new SSH key, instead of the
   # default one (perhaps because the box will be later packaged)
   #config.ssh.insert_key = false
 
@@ -91,41 +110,41 @@ Vagrant.configure(2) do |config|
   end
   #config.ssh.username = "vagrant"
 
-
-  config.vm.define "vm-spark-nb64" do |vgrspark|
+  config.vm.define "vm-spark-nb64" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
-    vgrspark.vm.box_version = "= 0.9.12"
-    vgrspark.vm.box = "paulovn/spark-base64"
+    vgrml.vm.box = "paulovn/spark-base64"
+    vgrml.vm.box_version = "= 2.0.1"
 
     # Alternative place: UAM internal
-    #vgrspark.vm.box = "uam/spark-base64"
-    #vgrspark.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
-    # Alternative place: TID internal or local box
-    #vgrspark.vm.box = "tid/spark-base64"
-    #vgrspark.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
-    #vgrspark.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box = "uam/spark-base64"
+    #vgrml.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
+    # Alternative place: TID internal
+    #vgrml.vm.box = "tid/spark-base64"
+    # Alternative place: local box
+    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
     # `vagrant box outdated`. This is not recommended.
-    # vgrspark.vm.box_check_update = false
+    # vgrml.vm.box_check_update = false
 
     # Deactivate the usual synced folder and use instead a local subdirectory
-    vgrspark.vm.synced_folder ".", "/vagrant", disabled: true
-    vgrspark.vm.synced_folder "vmfiles", "/vagrant", 
+    vgrml.vm.synced_folder ".", "/vagrant", disabled: true
+    vgrml.vm.synced_folder "vmfiles", "/vagrant", 
       mount_options: ["dmode=775","fmode=664"],
       disabled: false
     #owner: vm_username
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrspark.vm.hostname = "vm-ipnb-spark"
-    vgrspark.vm.provider :virtualbox do |vb|
+    vgrml.vm.hostname = "vgr-ipnb-spark"
+    vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
-      vb.name = vgrspark.vm.hostname.to_s
+      vb.name = vgrml.vm.hostname.to_s
       # Customize the amount of memory on the VM
       vb.memory = vm_memory
       # Set the number of CPUs
@@ -134,31 +153,40 @@ Vagrant.configure(2) do |config|
       #vb.gui = true
     end
 
+    # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
+    # check the correct additions version when booting this machine
+    #vgrml.vbguest.auto_update = false
+    
     # **********************************************************************
     # Networking
 
     # ---- NAT interface ----
     # NAT port forwarding
-    vgrspark.vm.network :forwarded_port, 
-     guest: port_ipython,
-     host: port_ipython                  # Notebook UI
+    vgrml.vm.network :forwarded_port, 
+     #auto_correct: true,
+     guest: port_nb_internal,
+     host: port_nb                  # Notebook UI
     # Spark driver UI
-    vgrspark.vm.network :forwarded_port, host: 4040, guest: 4040, 
+    vgrml.vm.network :forwarded_port, host: 4040, guest: 4040, 
      auto_correct: true
     # Spark driver UI for the 2nd application (e.g. a command-line job)
-    vgrspark.vm.network :forwarded_port, host: 4041, guest: 4041,
+    vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
      auto_correct: true
 
     # RStudio server
     # =====> uncomment if using RStudio
-    # vgrspark.vm.network :forwarded_port, host: 8787, guest: 8787
+    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
+
+    # Quiver
+    # =====> uncomment if using Quiver visualization for Keras
+    #vgrml.vm.network :forwarded_port, host: 5000, guest: 5000
 
     # In case we want to fix Spark ports
-    #vgrspark.vm.network :forwarded_port, host: 9234, guest: 9234
-    #vgrspark.vm.network :forwarded_port, host: 9235, guest: 9235
-    #vgrspark.vm.network :forwarded_port, host: 9236, guest: 9236
-    #vgrspark.vm.network :forwarded_port, host: 9237, guest: 9237
-    #vgrspark.vm.network :forwarded_port, host: 9238, guest: 9238
+    #vgrml.vm.network :forwarded_port, host: 9234, guest: 9234
+    #vgrml.vm.network :forwarded_port, host: 9235, guest: 9235
+    #vgrml.vm.network :forwarded_port, host: 9236, guest: 9236
+    #vgrml.vm.network :forwarded_port, host: 9237, guest: 9237
+    #vgrml.vm.network :forwarded_port, host: 9238, guest: 9238
 
     # ---- bridged interface ----
     # Declare a public network
@@ -166,7 +194,7 @@ Vagrant.configure(2) do |config|
     # must for a Spark driver [it needs SPARK_LOCAL_IP to be set to 
     # the outside-visible interface].
     # =====> Uncomment the following two lines to enable bridge mode:
-    #vgrspark.vm.network "public_network",
+    #vgrml.vm.network "public_network",
     #type: "dhcp"
 
     # ===> if the host has more than one interface, we can set which one to use
@@ -178,10 +206,10 @@ Vagrant.configure(2) do |config|
     # ---- private interface ----
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
-    #vgrspark.vm.network "private_network", ip: "192.72.33.10"
+    #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrspark.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_ipython.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
 
 
     # **********************************************************************
@@ -189,31 +217,57 @@ Vagrant.configure(2) do |config|
 
     # .........................................
     # Create the user to run Spark jobs (esp. notebook processes)
-    vgrspark.vm.provision "01.nbuser",
+    vgrml.vm.provision "01.nbuser",
     type: "shell", 
     privileged: true,
     args: [ vm_username ],
-    inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant "$1"
-      su -l "$1" <<-EOF
-mkdir bin tmp .ssh 2>/dev/null
+    inline: <<-SHELL      
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
+
+      # Create the .bash_profile file
+      cat <<'ENDPROFILE' > /home/$1/.bash_profile
+# .bash_profile - IPNB
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+   . ~/.bashrc
+fi
+
+# Add user dir to PATH
+export PATH=$HOME/bin:$PATH:$HOME/.local/bin
+# Python executable to use in a Pyspark driver (used outside notebooks)
+export PYSPARK_DRIVER_PYTHON=ipython
+# Place where to keep user R packages (used outside RStudio Server)
+export R_LIBS_USER=~/.Rlibrary
+# Load Theano initialization file
+export THEANORC=/etc/theanorc:~/.theanorc
+# Jupyter uses this to define datadir but it is undefined when using "runuser"
+test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
+ENDPROFILE
+      chown $1.$1 /home/$1/.bash_profile
+
+      # Create some local files as the designated user
+      su -l "$1" <<'USEREOF'
+for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
-rm -f bin/{python2.7,pip,ipython}
-ln -s /opt/ipnb/bin/ext/{python2.7,pip,ipython,jupyter} /home/$1/bin
-test -d .jupyter || mkdir .jupyter
+PYVER=$(ls -d /opt/ipnb/lib/python?.? | xargs -n1 basename)
+rm -f bin/{python,$PYVER.7,pip,ipython,jupyter}
+ln -s /opt/ipnb/bin/{python,$PYVER,pip,ipython,jupyter} bin
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
-echo "export PYSPARK_DRIVER_PYTHON=ipython" >> .bash_profile
-echo "export THEANORC=/etc/theanorc:~/.theanorc" >> .bashrc
-EOF
+echo 'alias dir="ls -al"' >> ~/.bashrc
+echo 'PS1="\\h#\\# \\W> "'   >> ~/.bashrc
+USEREOF
+
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
+      
     SHELL
 
     # Mount the shared folder with the new created user, so that it can write
     # ---> don't, instead we add the user to the vagrant group and mount the 
     #      shared folder with group permissions
-#    vgrspark.vm.provision "02.mount",
+#    vgrml.vm.provision "02.mount",
 #    type: "shell",
 #    privileged: true,
 #    keep_color: true,
@@ -225,177 +279,219 @@ EOF
 
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
-    # and install all kernels: Pyspark, Toree (Scala), IRKernel, and extensions
-    # Prepared for IPython 4 (so that we configure as a Jupyter app)
-    vgrspark.vm.provision "03.nbkernels",
+    # and install all kernels: Pyspark, SPylon (Scala), IRKernel, and extensions
+    # Prepared for IPython >=4 (so that we configure as a Jupyter app)
+    vgrml.vm.provision "10.config",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username, port_ipython, spark_basedir ],
+    args: [ vm_username, vm_password, port_nb_internal, spark_basedir ],
     inline: <<-SHELL
+     USERNAME=$1
+     PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
+
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
-     su -l "$1" -c "cat <<-EOF > /home/$1/.jupyter/jupyter_notebook_config.py
+     cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 c = get_config()
 # define server
 c.NotebookApp.ip = '*'
-c.NotebookApp.port = $2
+c.NotebookApp.port = $3
+c.NotebookApp.password = u'$PASS'
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
-c.NotebookApp.notebook_dir = u'/home/$1/IPNB'  
+c.NotebookApp.notebook_dir = u'/home/$USERNAME/IPNB'
 # Preload matplotlib
 c.IPKernelApp.matplotlib = 'inline'
+# Kernel heartbeat interval in seconds.
+# This is in jupyter_client.restarter. Not sure if it gets picked up
+c.KernelRestarter.time_to_dead = 30.0
+c.KernelRestarter.debug = True
 EOF
-"
-     KDIR=/home/$1/.local/share/jupyter/kernels
+     chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
+    SHELL
+
+    vgrml.vm.provision "11.pyspark",
+    type: "shell",
+    privileged: true,
+    keep_color: true,
+    args: [ spark_basedir, vm_username ],
+    inline: <<-SHELL
+     KERNEL_NAME='pyspark'
+     USERNAME=$2
+     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
+     KERNEL_DIR="${KDIR}/${KERNEL_NAME}"
+     KICONS=$1/kernel-icons
 
      # --------------------- Install the Pyspark kernel
      echo "Installing Pyspark kernel"
-     KERNEL_NAME=pyspark
-     su -l "$1" <<-EOF
-mkdir -p "${KDIR}/${KERNEL_NAME}"
-cat <<KERNEL > "${KDIR}/${KERNEL_NAME}/kernel.json"
+     su -l "$USERNAME" <<-EOF
+mkdir -p "${KERNEL_DIR}"
+cat <<KERNEL > "${KERNEL_DIR}/kernel.json"
 {
-    "display_name": "Pyspark (Py 2)",
+    "display_name": "Pyspark (Py3)",
     "language_info": { "name": "python",
-                       "codemirror_mode": { "name": "ipython", "version": 2 }
+                       "codemirror_mode": { "name": "ipython", "version": 3 }
                      },
     "argv": [
-	"/opt/ipnb/bin/ext/pyspark-ipnb",
+	"/opt/ipnb/bin/pyspark-ipnb",
 	"-m", "ipykernel",
 	"-f", "{connection_file}"
     ],
     "env": {
-        "SPARK_HOME": "/opt/spark/current"
+        "SPARK_HOME": "$1/current"
     }
 }
 KERNEL
-# Copy Pyspark kernel logo
-cp -p $3/kernel-icons/pyspark-icon-64x64.png $KDIR/$KERNEL_NAME/logo-64x64.png
-cp -p $3/kernel-icons/pyspark-icon-32x32.png $KDIR/$KERNEL_NAME/logo-32x32.png
+     # Copy Pyspark kernel logo
+     cp -p $KICONS/pyspark-icon-64x64.png $KERNEL_DIR/logo-64x64.png
+     cp -p $KICONS/pyspark-icon-32x32.png $KERNEL_DIR/logo-32x32.png
 EOF
+    SHELL
 
-     # --------------------- Install the Toree Spark kernel
-     echo "Installing Toree (Scala) kernel ..."
-     KERNEL_NAME='spark'
-     KERNEL_DIR="${KDIR}/${KERNEL_NAME}_scala"
-     su -l "$1" <<-EOF
-/opt/ipnb/bin/ext/jupyter toree install --user --spark_home="$3/current" \
-   --kernel_name="$KERNEL_NAME" \
-   --spark_opts='--master=local[2] \
-      --driver-java-options=-Xms1024M --driver-java-options=-Xmx2048M \
-      --driver-java-options=-Dlog4j.logLevel=info'
-sed -i 's/"spark - Scala"/"Spark (Scala 2.10)"/' "${KERNEL_DIR}/kernel.json"
-# Copy Scala kernel logos
-cp -p $3/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
-cp -p $3/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
+
+    vgrml.vm.provision "12.spylon",
+    type: "shell",
+    privileged: true,
+    keep_color: true,
+    args: [ spark_basedir, vm_username ],
+    inline: <<-SHELL
+     SPARK_BASE=$1
+     KERNEL_NAME='spylon-kernel'
+     USERNAME=$2
+     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
+     KERNEL_DIR="${KDIR}/${KERNEL_NAME}"
+     KICONS=$SPARK_BASE/kernel-icons
+
+     # --------------------- Install the Scala Spark kernel (Spylon)
+     echo "Installing Spylon (Scala) kernel ..."
+     su -l "$USERNAME" <<-EOF
+       PATH=/opt/ipnb/bin:$PATH python -m spylon_kernel install --user
+       /opt/ipnb/bin/python <<PYTH
+import json
+import os.path
+name = os.path.join('$KERNEL_DIR','kernel.json')
+with open(name) as f:
+   k = json.load(f)
+k['display_name'] = 'Scala 2.11 (SPylon)'
+k['env']['SPARK_HOME'] = '$SPARK_BASE/current'
+k['env']['SPARK_SUBMIT_OPTS'] += ' -Xms1024M -Xmx2048M -Dlog4j.logLevel=info'
+with open(name,'w') as f:
+   json.dump(k, f, sort_keys=True)
+PYTH
 EOF
+     # Copy Scala kernel logos
+     cp -p $1/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
+     cp -p $1/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
+    SHELL
+
+    vgrml.vm.provision "13.ir",
+    type: "shell",
+    privileged: true,
+    keep_color: true,
+    args: [ spark_basedir, vm_username ],
+    inline: <<-SHELL
+     USERNAME=$2
+     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
 
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
-     su -l "$1" <<-EOF
-PATH=/opt/ipnb/bin:$PATH LD_LIBRARY_PATH=/opt/rh/python27/root/usr/lib64 Rscript -e 'IRkernel::installspec()'
+     su -l "$USERNAME" <<EOF
+       PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
+       # Add the SPARK_HOME env variable to R
+       echo "SPARK_HOME=$1/current" >> /home/$USERNAME/.Renviron
 EOF
+     # Add the SPARK_HOME env variable to the kernel.json file
+     #KERNEL_JSON="${KDIR}/ir/kernel.json"
+     #ENVLINE='  "env": { "SPARK_HOME": "'$1'/current" },'
+     #POS=$(sed -n '/"argv"/=' $KERNEL_JSON)
+     #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
+    SHELL
+ 
+    vgrml.vm.provision "20.extensions",
+    type: "shell",
+    privileged: true,
+    keep_color: true,
+    args: [ vm_username ],
+    inline: <<-SHELL
+     USERNAME=$1
+     su -l "$USERNAME" <<EOF
+# --------------------- Install the notebook extensions
+echo "Installing notebook extensions"
+/opt/ipnb/bin/python -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
+ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python?.?/site-packages
 
-     # --------------------- Install the notebook extensions
-     echo "Installing notebook extensions"
-     su -l "$1" <<-EOF
-python2.7 -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
-     ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python2.7/site-packages
+# --------------------- Put the custom Jupyter icon in place
+cd /opt/ipnb/lib/python?.?/site-packages/notebook/static/base/images
+mv favicon.ico favicon-orig.ico
+ln -s favicon-custom.ico favicon.ico
 EOF
-
-     # --------------------- Put the custom Jupyter icon in place
-     cd /opt/ipnb/lib/python2.7/site-packages/notebook/static/base/images
-     mv favicon.ico favicon-orig.ico
-     ln -s favicon-custom.ico favicon.ico
-
     SHELL
 
     # .........................................
     # Install the Notebook startup script & configure it
     # Configure Spark execution mode & remote access if defined
-    vgrspark.vm.provision "04.nbconfig",
+    vgrml.vm.provision "21.nbconfig",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ spark_basedir, vm_username, spark_mode,
-            spark_master, spark_namenode, spark_history_server ],
+    args: [ vm_username,
+            spark_mode, spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
-     # Link the IPython notebook startup script, and set it up for starting
-     rm -f /etc/init.d/notebook
-     chmod 775 /opt/ipnb/bin/ext/jupyter-notebook-mgr
-     ln -s /opt/ipnb/bin/ext/jupyter-notebook-mgr /etc/init.d/notebook
-     chkconfig --add notebook
+     # Link the IPython mgr script so that it can be found by root
+     SCR=jupyter-notebook-mgr
+     chmod 775 /opt/ipnb/bin/$SCR
+     rm -f /usr/sbin/$SCR
+     ln -s /opt/ipnb/bin/$SCR /usr/sbin
+     # note we do not enable the service -- we'll explicitly start it at the end
 
      # Create the config for IPython notebook
-     cat <<-EOF > /etc/sysconfig/jupyter-notebook
-NOTEBOOK_USER="$2"
-NOTEBOOK_SCRIPT="/opt/ipnb/bin/ext/jupyter-notebook"
+     CFGD=/etc/sysconfig/
+     test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
+     cat <<-EOF > $CFGD/jupyter-notebook
+NOTEBOOK_USER="$1"
+NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
 
      # Configure remote addresses
-     if [ "$4" ]; then
-       service notebook set-addr yarn "$4" "$5" "$6"
-       service notebook set-addr standalone "$4" "$5" "$6"
+     if [ "$3" ]; then
+       jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
+       jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
      fi 
 
      # Set the name of the initially active config
-     echo "Configuring Spark mode as: $3"
-     service notebook set-mode "$3"
+     echo "Configuring Spark mode as: $2"
+     jupyter-notebook-mgr set-mode "$2"
   SHELL
 
-
-    # .........................................
-    # Create a subdirectory in the shared folder linked to the 
-    # default name of the Hive warehouse directory
-    vgrspark.vm.provision "05.hive.warehouse",
-    type: "shell",
-    keep_color: true,
-    privileged: true,
-    inline: <<-SHELL
-      mkdir -p /user/hive
-      ln -s /vagrant/warehouse /user/hive/warehouse
-    SHELL
-
-    # .........................................
-    # Install the neuralnet R package
-    # vgrspark.vm.provision "10.r.neuralnet",
-    # type: "shell",
-    # keep_color: true,
-    # privileged: true,
-    # inline: <<-SHELL
-    #  echo "Installing R packages"
-    #  for pkg in '"neuralnet"'
-    #  do
-    #      echo -e "\nInstalling R packages: $pkg"
-    #      Rscript -e "install.packages(c($pkg),dependencies=TRUE,repos=c('http://ftp.cixug.es/CRAN/','http://cran.es.r-project.org/'),quiet=FALSE)"
-    #  done
-    # SHELL
+    # *************************************************************************
+    # Optional packages
 
     # .........................................
     # Install RStudio server
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_RSTUDIO when creating or by --provision-with 20.rstudio) 
+    # PROVISION_RSTUDIO when creating or by --provision-with rstudio) 
     # *** Don't forget to also uncomment forwarding for port 8787!
     if (provision_run_rs)
-      vgrspark.vm.provision "20.rstudio",
+      vgrml.vm.provision "rstudio",
       type: "shell",
       keep_color: true,
       privileged: true,
-      args: [ vm_username ],
+      args: [ vm_username, vm_password ],
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
-        # Download & install the RPM for RStudio server
-        PKG=rstudio-server-rhel-0.99.902-x86_64.rpm
+        apt-get install -y gdebi-core
+        # Download & install the package for RStudio Server
+        PKG=rstudio-server-1.1.383-amd64.deb
         wget --no-verbose https://download2.rstudio.org/$PKG
-        sudo yum install -y --nogpgcheck $PKG
-        rm $PKG
+        gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library
-        echo "r-libs-user=~/.Rlibrary" >> /etc/rstudio/rsession.conf
+        CNF=/etc/rstudio/rsession.conf
+        grep -q r-libs-user $CNF || echo "r-libs-user=~/.Rlibrary" >> $CNF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
-        echo "$1" | passwd --stdin "$1"
+        echo "$1:$2" | chpasswd
         # Send message
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
@@ -405,45 +501,72 @@ EOF
     # .........................................
     # Install the necessary components for nbconvert to work.
     # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_NBC when creating or by --provision-with 21.nbc) 
+    # PROVISION_NBC when creating or by --provision-with nbc)
     if (provision_run_nbc)
-      vgrspark.vm.provision "21.nbc",
-      type: "shell",
-      privileged: false,
-      keep_color: true,
-      inline: <<-SHELL
-          echo "Installing nbconvert requisites"
-          sudo yum install -y pandoc inkscape
-          pip install pandoc
-          DIR=$(kpsewhich -var-value TEXMFLOCAL)
-          mkdir -p $DIR
-          cd $DIR
-          for p in collectbox adjustbox; do
-            wget --no-verbose http://mirrors.ctan.org/install/macros/latex/contrib/$p.tds.zip
-            unzip $p.tds.zip
-          done
-          texhash
-      SHELL
-    end
-
-    # .........................................
-    # Install the additional packages for the AI course
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_AI when creating or by --provision-with 22.ai) 
-    if (provision_run_ai)
-      vgrspark.vm.provision "22.ai",
+      vgrml.vm.provision "nbc",
       type: "shell",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        echo "Installing packages for AI course"
-        yum -y install python27-tkinter
-        su -l "vagrant" <<-EOF
-         pip install nltk graphviz
-         pip install https://github.com/paulovn/sparql-kernel/archive/master.zip
-         pip install https://github.com/paulovn/aiml-chatbot-kernel/archive/master.zip
-EOF
+          echo "Installing nbconvert requirements"
+          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
+          # We modify the LaTeX template to generate A4 pages
+          # (comment this out to keep Letter-sized pages)
+          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+      SHELL
+
+      # .........................................
+      # Optional: modify nbconvert to process Spanish documents
+      vgrml.vm.provision "nbc.es",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+          # Define language
+          LANGUAGE=spanish
+          CODE=es
+          echo "** Adding support for $LANGUAGE to LaTeX"
+          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
+          #sudo yum install -y texlive-polyglossia texlive-euenc texlive-hyph-utf8
+          LANGDAT=$(kpsewhich language.dat)
+          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
+          echo "** Converting base LaTeX template for $LANGUAGE"
+          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+      SHELL
+
+    end
+
+    # .........................................
+    # Install additional packages for NLP
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_NLP when creating or by --provision-with nlp) 
+    if (provision_run_nlp)
+      vgrml.vm.provision "nlp",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Installing additional NLP packages"
+        # pattern is Python 2 only
+        su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
+      SHELL
+    end
+
+    # .........................................
+    # Install a couple of additional Jupyter kernels
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_KRN when creating or by --provision-with kernels) 
+    if (provision_run_krn)
+      vgrml.vm.provision "kernels",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Installing additional kernels"
+        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
         su -l "$1" <<-EOF
          echo "Installing AIML-BOT & SPARQL kernels"
          jupyter aimlbotkernel install --user
@@ -452,7 +575,120 @@ EOF
 
       SHELL
     end
+    
+    # .........................................
+    # Install Maven
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_MVN when creating or by --provision-with mvn) 
+    if (provision_run_mvn)
+      vgrml.vm.provision "mvn",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        VERSION=3.3.9
+        DEST=/opt/maven
+        echo "Installing Maven $VERSION"
+        PKG=apache-maven-$VERSION
+        FILE=$PKG-bin.tar.gz
+        cd /tmp
+        wget http://apache.rediris.es/maven/maven-3/$VERSION/binaries/$FILE
+        rm -rf /home/$1/bin/mvn $DEST 
+        mkdir -p $DEST
+        tar zxvf $FILE -C $DEST
+        su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
+      SHELL
+    end
 
+    # Install Scala development tools
+    if (provision_run_scala)
+      vgrml.vm.provision "scala",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        # Download & install Scala
+        cd install
+        VERSION=2.11.8
+        PKG=scala-$VERSION.deb
+        echo "Downloading & installing Scala $VERSION"
+        wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
+        sudo dpkg -i $PKG && rm $PKG 
+        # Install sbt
+        echo "Installing sbt"
+        # Install sbt
+        echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
+        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
+        # Install scala-mode for Emacs
+        echo "Configuring scala-mode in Emacs" 
+        cat <<EOF >> /home/$1/.emacs
+
+; Install MELPA package repository
+(require 'package)
+(add-to-list 'package-archives
+            '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+(package-initialize)
+; Install Scala mode
+(unless (package-installed-p 'scala-mode)
+    (package-refresh-contents) (package-install 'scala-mode))
+
+EOF
+         chown $1.$1 /home/$1/.emacs
+      SHELL
+    end
+
+
+    # .........................................
+    # Modify Spark configuration to add or remove GraphFrames
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_GF when creating or by --provision-with graphframes)
+    if (provision_run_gf)
+      vgrml.vm.provision "graphframes",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ spark_basedir ],
+      inline: <<-SHELL
+        cd $1/current/conf
+        NAME=spark-defaults.conf
+        if [ $(readlink $NAME) = ${NAME}.local ]
+        then
+           echo "activating GraphFrames"
+           ln -sf ${NAME}.local.graphframes $NAME
+           ln -sf spark-env.sh.local.graphframes spark-env.sh
+        elif [ $(readlink $NAME) = ${NAME}.local.graphframes ]
+        then
+           echo "deactivating GraphFrames"
+           ln -sf ${NAME}.local ${NAME}
+           ln -sf spark-env.sh.local spark-env.sh
+        else
+           echo "No local configuration active"
+        fi
+      SHELL
+    end
+
+    # .........................................
+    # Install some Deep Learning stuff
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_DL when creating or by --provision-with dl) 
+    if (provision_run_dl)
+      vgrml.vm.provision "dl",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+         sudo apt-get install -y git
+         pip install --upgrade tensorflow
+         pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
+         pip install --upgrade keras quiver
+         sudo apt-get remove -y git 
+       SHELL
+    end
+
+
+    # *************************************************************************
 
     # .........................................
     # Start Jupyter Notebook
@@ -463,14 +699,14 @@ EOF
     # this way it works.
     # [An alternative would be to force mounting on startup, by adding the
     # vboxsf mount point to /etc/fstab during provisioning]
-    vgrspark.vm.provision "50.nbstart", 
+    vgrml.vm.provision "50.nbstart", 
       type: "shell", 
       run: "always",
       privileged: true,
       keep_color: true,    
-      inline: "/etc/init.d/notebook start"
-
+      inline: "systemctl start notebook"
 
   end # config.vm.define
+
 
 end
