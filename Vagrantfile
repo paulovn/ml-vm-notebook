@@ -102,6 +102,10 @@ Vagrant.configure(2) do |config|
   # default one (perhaps because the box will be later packaged)
   #config.ssh.insert_key = false
 
+  # set auto_update to false, if you do NOT want to check the correct 
+  # additions version when booting this machine
+  #config.vbguest.auto_update = false
+
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
       config.ssh.username = vm_username
@@ -114,7 +118,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 2.0.1"
+    vgrml.vm.box_version = "= 2.1.0"
 
     # Alternative place: UAM internal
     #vgrml.vm.box = "uam/spark-base64"
@@ -585,7 +589,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.3.9
+        VERSION=3.5.3
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
