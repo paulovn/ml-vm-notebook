@@ -1,11 +1,11 @@
 # -*- mode: ruby;  ruby-indent-tabs-mode: t -*-
 # vi: set ft=ruby :
 # **************************************************************************
-# Add specific configuration for running IPython notebooks on a Spark VM
+# Add specific configuration for running IPython notebooks on a VM
 # **************************************************************************
 
 # --------------------------------------------------------------------------
-# Variables defining the configuration of Spark & notebook 
+# Variables defining the configuration of notebook 
 # Modify as needed
 
 # RAM memory used for the VM, in MB
@@ -16,51 +16,13 @@ vm_cpus = '1'
 # Password to use to access the Notebook web interface 
 vm_password = 'vmuser'
 
-# Username that will run all spark processes.
-# (if remote (yarn) mode is ever going to be used, it is advisable to change
-# it to a recognizable unique name, so that it is easily identified in the
-# server logs)
+# Username that will run all processes.
 vm_username = 'vmuser'
 
 # The virtual machine exports the port where the notebook process by
 # forwarding it to this port of the local machine
 # So to access the notebook server, you point to http://localhost:<port>
 port_nb = 8008
-
-# Note there is an additional port exported: the Spark UI driver is
-# forwarded to port 4040
-
-# This defines the Spark notebook processing mode. There are three choices
-# available: "local", "yarn", "standalone"
-# It can be changed at runtime by executing inside the virtual machine, as 
-# root user, "service notebook set-mode <mode>"
-spark_mode = 'local'
-
-# -----------------
-# These 3 options are used only when running non-local tasks. They define
-# the access points for the remote cluster.
-# They can also be modified at runtime by executing inside the virtual
-# machine: "sudo service notebook set-addr <A> <B> <C>"
-# **IMPORTANT**: If remote mode is to be used, the virtual machine needs
-# a network interface in bridge mode. In that case Uncomment the relevant
-# lines in the networking section below
-
-# [A] The location of the cluster master (the YARN Resource Manager in Yarn 
-# mode, or the Spark master in standalone mode)
-spark_master = 'samson02.hi.inet'
-# [B] The host running the HDFS namenode
-spark_namenode = 'samson01.hi.inet'
-# [C] The location of the Spark History Server
-spark_history_server = 'samson03.hi.inet:18080'
-# ------------------
-
-
-# --------------------------------------------------------------------------
-# Variables defining the Spark installation in the base box. 
-# Don't change these
-
-# The place where Spark is deployed inside the local machine
-spark_basedir = '/opt/spark'
 
 
 # --------------------------------------------------------------------------
@@ -88,9 +50,6 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
 provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('graphframes'))
 
-#provision_run_rs = true
-#provision_run_ai = true
-
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
@@ -107,29 +66,25 @@ Vagrant.configure(2) do |config|
   # set auto_update to false, if you do NOT want to check the correct 
   # additions version when booting this machine
   #config.vbguest.auto_update = false
-
+ 
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
       config.ssh.username = vm_username
   end
   #config.ssh.username = "vagrant"
 
-  config.vm.define "vm-spark-nb64" do |vgrml|
 
-    #config.name = "vgr-pyspark"
+  config.vm.define "vm-machinelearning" do |vgrml|
 
     # The base box we are using. As fetched from ATLAS
-    vgrml.vm.box = "paulovn/spark-base64"
+    vgrml.vm.box = "paulovn/ml-base64"
     vgrml.vm.box_version = "= 2.1.0"
 
-    # Alternative place: UAM internal
-    #vgrml.vm.box = "uam/spark-base64"
-    #vgrml.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
-    # Alternative place: TID internal
-    #vgrml.vm.box = "tid/spark-base64"
+    # Alternative place: box elsewhere
+    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-200-box"
+
     # Alternative place: local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
-    #vgrml.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/ml-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -145,7 +100,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrml.vm.hostname = "vgr-ipnb-spark"
+    vgrml.vm.hostname = "vm-machinelearning"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -167,15 +122,9 @@ Vagrant.configure(2) do |config|
     # ---- NAT interface ----
     # NAT port forwarding
     vgrml.vm.network :forwarded_port, 
-     #auto_correct: true,
+     auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
-    # Spark driver UI
-    vgrml.vm.network :forwarded_port, host: 4040, guest: 4040, 
-     auto_correct: true
-    # Spark driver UI for the 2nd application (e.g. a command-line job)
-    vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
-     auto_correct: true
 
     # RStudio server
     # =====> uncomment if using RStudio
@@ -185,18 +134,9 @@ Vagrant.configure(2) do |config|
     # =====> uncomment if using Quiver visualization for Keras
     #vgrml.vm.network :forwarded_port, host: 5000, guest: 5000
 
-    # In case we want to fix Spark ports
-    #vgrml.vm.network :forwarded_port, host: 9234, guest: 9234
-    #vgrml.vm.network :forwarded_port, host: 9235, guest: 9235
-    #vgrml.vm.network :forwarded_port, host: 9236, guest: 9236
-    #vgrml.vm.network :forwarded_port, host: 9237, guest: 9237
-    #vgrml.vm.network :forwarded_port, host: 9238, guest: 9238
-
     # ---- bridged interface ----
     # Declare a public network
-    # This enables the machine to be connected from outside, which is a
-    # must for a Spark driver [it needs SPARK_LOCAL_IP to be set to 
-    # the outside-visible interface].
+    # This enables the machine to be connected from outside
     # =====> Uncomment the following two lines to enable bridge mode:
     #vgrml.vm.network "public_network",
     #type: "dhcp"
@@ -213,20 +153,20 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
 
 
     # **********************************************************************
-    # Provisioning: install Spark configuration files and startup scripts
+    # Provisioning: install configuration files and startup scripts
 
     # .........................................
-    # Create the user to run Spark jobs (esp. notebook processes)
+    # Create the user to run jobs (esp. notebook processes)
     vgrml.vm.provision "01.nbuser",
     type: "shell", 
     privileged: true,
     args: [ vm_username ],
-    inline: <<-SHELL      
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
+    inline: <<-SHELL
+      id "$1" >/dev/null 2>&1 || useradd -c 'User for Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -239,8 +179,6 @@ fi
 
 # Add user dir to PATH
 export PATH=$HOME/bin:$PATH:$HOME/.local/bin
-# Python executable to use in a Pyspark driver (used outside notebooks)
-export PYSPARK_DRIVER_PYTHON=ipython
 # Place where to keep user R packages (used outside RStudio Server)
 export R_LIBS_USER=~/.Rlibrary
 # Load Theano initialization file
@@ -282,14 +220,13 @@ USEREOF
 #SHELL
 
     # .........................................
-    # Create the IPython Notebook profile ready to run Spark jobs
-    # and install all kernels: Pyspark, SPylon (Scala), IRKernel, and extensions
+    # Create the IPython Notebook profile
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
     vgrml.vm.provision "10.config",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username, vm_password, port_nb_internal, spark_basedir ],
+    args: [ vm_username, vm_password, port_nb_internal ],
     inline: <<-SHELL
      USERNAME=$1
      PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
@@ -315,101 +252,20 @@ EOF
      chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
     SHELL
 
-    vgrml.vm.provision "11.pyspark",
-    type: "shell",
-    privileged: true,
-    keep_color: true,
-    args: [ spark_basedir, vm_username ],
-    inline: <<-SHELL
-     KERNEL_NAME='pyspark'
-     USERNAME=$2
-     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
-     KERNEL_DIR="${KDIR}/${KERNEL_NAME}"
-     KICONS=$1/kernel-icons
-
-     # --------------------- Install the Pyspark kernel
-     echo "Installing Pyspark kernel"
-     su -l "$USERNAME" <<-EOF
-mkdir -p "${KERNEL_DIR}"
-cat <<KERNEL > "${KERNEL_DIR}/kernel.json"
-{
-    "display_name": "Pyspark (Py3)",
-    "language_info": { "name": "python",
-                       "codemirror_mode": { "name": "ipython", "version": 3 }
-                     },
-    "argv": [
-	"/opt/ipnb/bin/pyspark-ipnb",
-	"-m", "ipykernel",
-	"-f", "{connection_file}"
-    ],
-    "env": {
-        "SPARK_HOME": "$1/current"
-    }
-}
-KERNEL
-     # Copy Pyspark kernel logo
-     cp -p $KICONS/pyspark-icon-64x64.png $KERNEL_DIR/logo-64x64.png
-     cp -p $KICONS/pyspark-icon-32x32.png $KERNEL_DIR/logo-32x32.png
-EOF
-    SHELL
-
-
-    vgrml.vm.provision "12.spylon",
-    type: "shell",
-    privileged: true,
-    keep_color: true,
-    args: [ spark_basedir, vm_username ],
-    inline: <<-SHELL
-     SPARK_BASE=$1
-     KERNEL_NAME='spylon-kernel'
-     USERNAME=$2
-     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
-     KERNEL_DIR="${KDIR}/${KERNEL_NAME}"
-     KICONS=$SPARK_BASE/kernel-icons
-
-     # --------------------- Install the Scala Spark kernel (Spylon)
-     echo "Installing Spylon (Scala) kernel ..."
-     su -l "$USERNAME" <<-EOF
-       PATH=/opt/ipnb/bin:$PATH python -m spylon_kernel install --user
-       /opt/ipnb/bin/python <<PYTH
-import json
-import os.path
-name = os.path.join('$KERNEL_DIR','kernel.json')
-with open(name) as f:
-   k = json.load(f)
-k['display_name'] = 'Scala 2.11 (SPylon)'
-k['env']['SPARK_HOME'] = '$SPARK_BASE/current'
-k['env']['SPARK_SUBMIT_OPTS'] += ' -Xms1024M -Xmx2048M -Dlog4j.logLevel=info'
-with open(name,'w') as f:
-   json.dump(k, f, sort_keys=True)
-PYTH
-EOF
-     # Copy Scala kernel logos
-     cp -p $1/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
-     cp -p $1/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
-    SHELL
-
     vgrml.vm.provision "13.ir",
     type: "shell",
     privileged: true,
     keep_color: true,
-    args: [ spark_basedir, vm_username ],
+    args: [ vm_username ],
     inline: <<-SHELL
-     USERNAME=$2
+     USERNAME=$1
      KDIR=/home/$USERNAME/.local/share/jupyter/kernels
 
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<EOF
        PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
-       # Add the SPARK_HOME env variable to R
-       echo "SPARK_HOME=$1/current" >> /home/$USERNAME/.Renviron
 EOF
-     # Add the SPARK_HOME env variable to the kernel.json file
-     #KERNEL_JSON="${KDIR}/ir/kernel.json"
-     #ENVLINE='  "env": { "SPARK_HOME": "'$1'/current" },'
-     #POS=$(sed -n '/"argv"/=' $KERNEL_JSON)
-     #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
     SHELL
  
     vgrml.vm.provision "20.extensions",
@@ -434,13 +290,11 @@ EOF
 
     # .........................................
     # Install the Notebook startup script & configure it
-    # Configure Spark execution mode & remote access if defined
     vgrml.vm.provision "21.nbconfig",
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username,
-            spark_mode, spark_master, spark_namenode, spark_history_server ],
+    args: [ vm_username ],
     inline: <<-SHELL
      # Link the IPython mgr script so that it can be found by root
      SCR=jupyter-notebook-mgr
@@ -457,15 +311,6 @@ NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
 
-     # Configure remote addresses
-     if [ "$3" ]; then
-       jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
-       jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
-     fi 
-
-     # Set the name of the initially active config
-     echo "Configuring Spark mode as: $2"
-     jupyter-notebook-mgr set-mode "$2"
   SHELL
 
     # *************************************************************************
@@ -640,36 +485,6 @@ EOF
 
 EOF
          chown $1.$1 /home/$1/.emacs
-      SHELL
-    end
-
-
-    # .........................................
-    # Modify Spark configuration to add or remove GraphFrames
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_GF when creating or by --provision-with graphframes)
-    if (provision_run_gf)
-      vgrml.vm.provision "graphframes",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ spark_basedir ],
-      inline: <<-SHELL
-        cd $1/current/conf
-        NAME=spark-defaults.conf
-        if [ $(readlink $NAME) = ${NAME}.local ]
-        then
-           echo "activating GraphFrames"
-           ln -sf ${NAME}.local.graphframes $NAME
-           ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ $(readlink $NAME) = ${NAME}.local.graphframes ]
-        then
-           echo "deactivating GraphFrames"
-           ln -sf ${NAME}.local ${NAME}
-           ln -sf spark-env.sh.local spark-env.sh
-        else
-           echo "No local configuration active"
-        fi
       SHELL
     end
 
