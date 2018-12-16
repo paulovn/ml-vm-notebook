@@ -120,7 +120,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 2.1.0"
+    vgrml.vm.box_version = "= 2.2.0"
 
     # Alternative place: UAM internal
     #vgrml.vm.box = "uam/spark-base64"
@@ -138,7 +138,7 @@ Vagrant.configure(2) do |config|
 
     # Deactivate the usual synced folder and use instead a local subdirectory
     vgrml.vm.synced_folder ".", "/vagrant", disabled: true
-    vgrml.vm.synced_folder "vmfiles", "/vagrant", 
+    vgrml.vm.synced_folder "vmfiles", "/vagrant",
       mount_options: ["dmode=775","fmode=664"],
       disabled: false
     #owner: vm_username
@@ -155,12 +155,18 @@ Vagrant.configure(2) do |config|
       vb.cpus = vm_cpus
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
+      vb.customize [ "guestproperty", "set", :id,
+                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
+                     10000 ]
+      vb.customize [ "guestproperty", "set", :id,
+                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
+                     1 ]
     end
 
     # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
     # check the correct additions version when booting this machine
     #vgrml.vbguest.auto_update = false
-    
+
     # **********************************************************************
     # Networking
 
@@ -299,7 +305,7 @@ USEREOF
      cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 c = get_config()
 # define server
-c.NotebookApp.ip = '*'
+c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.port = $3
 c.NotebookApp.password = u'$PASS'
 c.NotebookApp.open_browser = False
@@ -532,7 +538,7 @@ EOF
           CODE=es
           echo "** Adding support for $LANGUAGE to LaTeX"
           # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
-          #sudo yum install -y texlive-polyglossia texlive-euenc texlive-hyph-utf8
+          apt-get install -y texlive-lang-spanish
           LANGDAT=$(kpsewhich language.dat)
           sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
           echo "** Converting base LaTeX template for $LANGUAGE"
@@ -591,7 +597,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.5.3
+        VERSION=3.5.4
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
@@ -615,7 +621,7 @@ EOF
       inline: <<-SHELL
         # Download & install Scala
         cd install
-        VERSION=2.11.8
+        VERSION=2.11.12
         PKG=scala-$VERSION.deb
         echo "Downloading & installing Scala $VERSION"
         wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
@@ -687,6 +693,9 @@ EOF
          pip install --upgrade tensorflow
          pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
          pip install --upgrade keras quiver
+         #pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp35-cp35m-linux_x86_64.whl
+         pip install torchvision_nightly
+         pip install torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
          sudo apt-get remove -y git 
        SHELL
     end
