@@ -492,7 +492,7 @@ EOF
         echo "Downloading & installing RStudio Server"
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.1.383-amd64.deb
+        PKG=rstudio-server-1.1.463-amd64.deb
         wget --no-verbose https://download2.rstudio.org/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library
