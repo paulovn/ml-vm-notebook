@@ -4,12 +4,12 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `spark-base64` VM (which already provides all 
-the needed software packages, on an Ubuntu 16.04). On top of that, it configures
+the needed software packages, on an Ubuntu 18.04). On top of that, it configures
 and launches a Jupyter Notebook process, exported as an HTTP service to a local
 port. It allows creating notebooks with four different kernels:
-  * Python 3.5 (plain Python, with additional libraries such as NumPy, SciPy,
+  * Python 3.6 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
-  * Pyspark (Python 3.5 + libraries + Spark),
+  * Pyspark (Python 3.6 + libraries + Spark),
   * Scala 2.11 + Spark
   * R (with SparkR available, though not loaded by default).
 
@@ -17,11 +17,11 @@ The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 2.2.0
-* Python 3.5.2
-* A virtualenv for Python 3.5.2 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 5 + Jupyter notebook
-* R 3.4.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
-* Spark notebook Kernels for Python 3.5, Scala ([SPylon](https://github.com/maxpoint/spylon-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.5 kernel.
+* [Apache Spark](http://spark.apache.org/) 2.3.2
+* Python 3.6.6
+* A virtualenv for Python 3.6.6 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
+* R 3.5.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* Spark notebook Kernels for Python 3.6, Scala ([SPylon](https://github.com/maxpoint/spylon-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.6 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
 
@@ -216,7 +216,7 @@ It includes the following list:
 | nlp | Some additional Python packages for Natural Language Processing |
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
-| dl | Deep Learning libraries (Keras, Theano, Tensorflow) |
+| dl | Deep Learning libraries (Keras, Theano, Tensorflow, Torch) |
 | graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 
 
