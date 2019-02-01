@@ -118,7 +118,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 2.2.0"
+    vgrml.vm.box_version = "= 2.2.1"
 
     # Alternative place: UAM internal
     #vgrml.vm.box = "uam/spark-base64"
@@ -691,9 +691,7 @@ EOF
          pip install --upgrade tensorflow
          pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
          pip install --upgrade keras quiver
-         #pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp35-cp35m-linux_x86_64.whl
-         pip install torchvision_nightly
-         pip install torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+         pip install --upgrade torch torchvision
          sudo apt-get remove -y git 
        SHELL
     end
