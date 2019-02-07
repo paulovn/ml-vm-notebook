@@ -536,7 +536,7 @@ EOF
           CODE=es
           echo "** Adding support for $LANGUAGE to LaTeX"
           # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
-          apt-get install -y texlive-lang-spanish
+          sudo apt-get install -y texlive-lang-spanish
           LANGDAT=$(kpsewhich language.dat)
           sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
           echo "** Converting base LaTeX template for $LANGUAGE"
