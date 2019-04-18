@@ -4,21 +4,19 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `ml-base64` VM (which already provides all 
-the needed software packages, on an Ubuntu 16.04). On top of that, it configures
+the needed software packages, on an Ubuntu 18.04). On top of that, it configures
 and launches a Jupyter Notebook process, exported as an HTTP service to a local
 port. It allows creating notebooks with two different kernels:
-  * Python 3.5 (plain Python, with additional libraries such as NumPy, SciPy,
+  * Python 3.6 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
   * R
 
 The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
-
-* Python 3.5.2
-* A virtualenv for Python 3.5.2 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 5 + Jupyter notebook
-* R 3.4.4 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). 
-* Spark notebook Kernels for Python 3.5 and R ([IRKernel](https://github.com/IRkernel/IRkernel))
+* Python 3.6.6
+* A virtualenv for Python 3.6.6 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
+* R 3.5.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). 
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 
 
