@@ -1,4 +1,4 @@
-# Spark Virtual Machine
+# Machine Learning Virtual Machine
 
 A 64 bit virtual machine for Machine Learning/Data Science tasks. 
 Generated and provisioned with Vagrant.
@@ -43,8 +43,7 @@ The contents of the VM are:
 2. If desired, open the Vagrantfile with a text editor and customize the 
    options at the top of the file; see the relevant comments. 
    Specially interesting might be the amount of RAM/CPUs assigned to the
-   Virtual Machine and, if access to a remote Spark cluster is sought, the
-   IP address of the cluster. Another configurable value is the notebook
+   Virtual Machine and. Another configurable value is the notebook
    access password (in the `vm_password` variable).
    Note that no customization is needed to make the VM work (i.e. it will 
    happily work with no changes to the Vagrantfile)
@@ -84,9 +83,6 @@ the host and the VM:
  * Furthermore, the notebook server is configured to browse the files in the
    `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
    subdirectory. A few example mini-notebooks are already provided there.
- * Finally, the `vmfiles/hive` subdirectory is the place configured in
-   Spark SQL for its metastore & tables (so it should survive to changes in
-   the VM).
 
 The Jupyter notebook server starts automatically. It can be managed
 (start/stop/restart) in a VM console session (see below) via:
