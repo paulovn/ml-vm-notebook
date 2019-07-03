@@ -114,6 +114,8 @@ Vagrant.configure(2) do |config|
   end
   #config.ssh.username = "vagrant"
 
+  config.vm.box_download_insecure = true
+
   config.vm.define "vm-spark-nb64" do |vgrml|
 
     #config.name = "vgr-pyspark"
@@ -185,7 +187,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> uncomment if using RStudio
-    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
+    vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # Quiver
     # =====> uncomment if using Quiver visualization for Keras
@@ -495,9 +497,13 @@ EOF
         PKG=rstudio-server-1.1.463-amd64.deb
         wget --no-verbose https://download2.rstudio.org/$PKG
         gdebi -n $PKG && rm -f $PKG
-        # Define the directory for the user library
+        # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
-        grep -q r-libs-user $CNF || echo "r-libs-user=~/.Rlibrary" >> $CNF
+        grep -q r-libs-user $CNF || cat >>$CNF <<EOF 
+r-libs-user=~/.Rlibrary
+session-default-working-dir=/vagrant/R
+session-default-new-project-dir=/vagrant/R
+EOF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
