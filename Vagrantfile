@@ -1,26 +1,21 @@
 # -*- mode: ruby;  ruby-indent-tabs-mode: t -*-
 # vi: set ft=ruby :
 # **************************************************************************
-# Add specific configuration for running IPython notebooks on a Spark VM
+# Provision a VM for Machine Learning/NLP tasks
 # **************************************************************************
 
 # --------------------------------------------------------------------------
-# Variables defining the configuration of Spark & notebook 
-# Modify as needed
+# Runtime variables defining VM behaviour
+# (used every time the VM starts)
+
+# Launch in graphical mode: true/false
+vm_gui = false
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
+
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
-
-# Password to use to access the Notebook web interface 
-vm_password = 'vmuser'
-
-# Username that will run all spark processes.
-# (if remote (yarn) mode is ever going to be used, it is advisable to change
-# it to a recognizable unique name, so that it is easily identified in the
-# server logs)
-vm_username = 'vmuser'
 
 # The virtual machine exports the port where the notebook process by
 # forwarding it to this port of the local machine
@@ -30,29 +25,20 @@ port_nb = 8008
 # Note there is an additional port exported: the Spark UI driver is
 # forwarded to port 4040
 
+# --------------------------------------------------------------------------
+# Configuration variables used at VM provision
+
+# Username that will run all processes.
+vm_username = 'vmuser'
+
+# Password to use to access the Notebook web interface 
+vm_password = 'vmuser'
+
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
 # It can be changed at runtime by executing inside the virtual machine, as 
 # root user, "service notebook set-mode <mode>"
 spark_mode = 'local'
-
-# -----------------
-# These 3 options are used only when running non-local tasks. They define
-# the access points for the remote cluster.
-# They can also be modified at runtime by executing inside the virtual
-# machine: "sudo service notebook set-addr <A> <B> <C>"
-# **IMPORTANT**: If remote mode is to be used, the virtual machine needs
-# a network interface in bridge mode. In that case Uncomment the relevant
-# lines in the networking section below
-
-# [A] The location of the cluster master (the YARN Resource Manager in Yarn 
-# mode, or the Spark master in standalone mode)
-spark_master = 'samson02.hi.inet'
-# [B] The host running the HDFS namenode
-spark_namenode = 'samson01.hi.inet'
-# [C] The location of the Spark History Server
-spark_history_server = 'samson03.hi.inet:18080'
-# ------------------
 
 
 # --------------------------------------------------------------------------
@@ -77,19 +63,16 @@ provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
            (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
 provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('nlp'))
-provision_run_krn  = ENV['PROVISION_KERNELS'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('kernels'))
-provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('mvn'))
-provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('scala'))
 provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('dl'))
-provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('graphframes'))
+provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('mvn'))
 
-#provision_run_rs = true
-#provision_run_ai = true
+provision_run_nlp = true
+provision_run_dl = true
+provision_run_desktop = true
+provision_run_desktop_full = false
+
 
 
 # --------------------------------------------------------------------------
@@ -106,7 +89,7 @@ Vagrant.configure(2) do |config|
 
   # set auto_update to false, if you do NOT want to check the correct 
   # additions version when booting this machine
-  #config.vbguest.auto_update = false
+  config.vbguest.auto_update = false
 
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
@@ -116,7 +99,7 @@ Vagrant.configure(2) do |config|
 
   config.vm.box_download_insecure = true
 
-  config.vm.define "vm-spark-nb64" do |vgrml|
+  config.vm.define "vm-nlp-nb64" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
@@ -147,7 +130,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
   
     # Customize the virtual machine: set hostname & allocated RAM
-    vgrml.vm.hostname = "vgr-ipnb-spark"
+    vgrml.vm.hostname = "vgr-nlp"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -155,14 +138,17 @@ Vagrant.configure(2) do |config|
       vb.memory = vm_memory
       # Set the number of CPUs
       vb.cpus = vm_cpus
-      # Display the VirtualBox GUI when booting the machine
-      #vb.gui = true
       vb.customize [ "guestproperty", "set", :id,
                      "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
                      10000 ]
       vb.customize [ "guestproperty", "set", :id,
                      "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
                      1 ]
+
+      # Display the VirtualBox GUI when booting the machine
+      vb.gui = vm_gui
+      vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+      vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]      
     end
 
     # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
@@ -221,20 +207,55 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant NLP machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
 
 
     # **********************************************************************
-    # Provisioning: install Spark configuration files and startup scripts
+    # Provisioning: install software, configuration files and startup scripts
 
     # .........................................
-    # Create the user to run Spark jobs (esp. notebook processes)
-    vgrml.vm.provision "01.nbuser",
+    # Base system configuration
+    vgrml.vm.provision "01.system",
     type: "shell", 
     privileged: true,
-    args: [ vm_username ],
     inline: <<-SHELL      
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
+      echo "System preparation ..."
+      echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+      # Update base packages
+      apt-get update
+      apt-get upgrade -y
+
+      # Set locale
+      apt-get install -y locales
+      locale-gen es_ES.UTF-8 en_US.UTF-8
+
+      # Set timezone
+      timedatectl set-timezone Europe/Madrid
+
+      # Set keyboard
+      cat > /etc/default/keyboard <<-EOF
+XKBMODEL=pc105
+XKBLAYOUT=es
+XKBOPTIONS=terminate:ctrl_alt_bksp
+BACKSPACE=guess
+EOF
+
+      # Install dev tools
+      apt-get install -y software-properties-common
+      apt-get install -y build-essential
+    SHELL
+
+    # .........................................
+    # Create the user to run jobs (esp. notebook processes)
+    vgrml.vm.provision "02.nbuser",
+    type: "shell", 
+    privileged: true,
+    args: [ vm_username, vm_password ],
+    inline: <<-SHELL      
+      # Create user
+      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo "$1" -s /bin/bash
+      # Set the password for the user
+      echo "$1:$2" | chpasswd
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -258,7 +279,7 @@ test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
       chown $1.$1 /home/$1/.bash_profile
 
-      # Create some local files as the designated user
+      # Create some local files as the designated user, plus update bashrc
       su -l "$1" <<'USEREOF'
 for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
@@ -268,6 +289,7 @@ ln -s /opt/ipnb/bin/{python,$PYVER,pip,ipython,jupyter} bin
 test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
 echo 'alias dir="ls -al"' >> ~/.bashrc
 echo 'PS1="\\h#\\# \\W> "'   >> ~/.bashrc
+echo 'export NO_AT_BRIDGE=1' >> ~/.bashrc
 USEREOF
 
       # Install the vagrant public key so that we can ssh to this account
@@ -288,6 +310,59 @@ USEREOF
 #umount /vagrant
 #mount -t vboxsf -o uid=$(id -u $1),gid=$(id -g $1) vagrant /vagrant
 #SHELL
+
+    # .........................................
+    # Install graphical desktop
+    if (provision_run_desktop)
+      vgrml.vm.provision "05.desktop",
+      type: "shell", 
+      privileged: true,
+      inline: <<-SHELL
+        echo "Installing basic desktop environment ..."
+        # Lightweight desktop (minimal MATE environment)
+        apt-get install -y --no-install-recommends ubuntu-mate-desktop mate-terminal mate-applet-brisk-menu lightdm lightdm-gtk-greeter gedit mozo 
+        apt-get install -y virtualbox-guest-dkms virtualbox-guest-utils virtualbox-guest-x11
+        # Reduce grub menu wait time
+        echo GRUB_RECORDFAIL_TIMEOUT=5 >> /etc/default/grub; update-grub
+        # Deactivate automatic start of Display Manager
+        systemctl disable lightdm
+      SHELL
+      
+      vgrml.vm.provision "05.desktop.theme",
+      type: "shell", 
+      privileged: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        # Do some theming
+        echo -e '[User]\nIcon=/usr/share/icons/mate/48x48/emotes/face-cool.png' >> /var/lib/AccountsService/users/$1
+        cat <<LIGHTDM >/etc/lightdm/lightdm-gtk-greeter.conf
+[greeter]
+background=/usr/share/backgrounds/cosmos/earth-horizon.jpg
+user-background=true
+LIGHTDM
+        cat <<SCHEMA >/usr/share/glib-2.0/schemas/90_desktop.gschema.override
+[org.mate.interface]
+icon-theme='mate'
+gtk-theme='Blue-Submarine'
+
+[org.mate.Marco.general]
+theme='Blue-Submarine'
+
+[com.solus-project.brisk-menu]
+favourites=['mate-terminal.desktop', 'caja-browser.desktop', 'gedit.desktop']
+SCHEMA
+        glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+      SHELL
+    end
+
+    if (provision_run_desktop_full)
+      vgrml.vm.provision "05.desktop-full",
+      type: "shell",
+      privileged: true,
+      inline: "apt-get install -y ubuntu-desktop"
+    end
+
 
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
@@ -447,8 +522,7 @@ EOF
     type: "shell", 
     privileged: true,
     keep_color: true,    
-    args: [ vm_username,
-            spark_mode, spark_master, spark_namenode, spark_history_server ],
+    args: [ vm_username, spark_mode ],
     inline: <<-SHELL
      # Link the IPython mgr script so that it can be found by root
      SCR=jupyter-notebook-mgr
@@ -464,12 +538,6 @@ EOF
 NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 EOF
-
-     # Configure remote addresses
-     if [ "$3" ]; then
-       jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
-       jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
-     fi 
 
      # Set the name of the initially active config
      echo "Configuring Spark mode as: $2"
@@ -506,8 +574,6 @@ session-default-new-project-dir=/vagrant/R
 EOF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
-        # Set the password for the user, so that it can log in in RStudio
-        echo "$1:$2" | chpasswd
         # Send message
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
@@ -558,40 +624,70 @@ EOF
     # Do it only if explicitly requested (either by environment variable 
     # PROVISION_NLP when creating or by --provision-with nlp) 
     if (provision_run_nlp)
-      vgrml.vm.provision "nlp",
+      vgrml.vm.provision "nlp.1",
       type: "shell",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        echo "Installing additional NLP packages"
-        # pattern is Python 2 only
+        echo "Installing NLP packages (I)"
         su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
       SHELL
-    end
 
-    # .........................................
-    # Install a couple of additional Jupyter kernels
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_KRN when creating or by --provision-with kernels) 
-    if (provision_run_krn)
-      vgrml.vm.provision "kernels",
+      vgrml.vm.provision "nlp.2",
       type: "shell",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        echo "Installing additional kernels"
-        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
-        su -l "$1" <<-EOF
-         echo "Installing AIML-BOT & SPARQL kernels"
-         jupyter aimlbotkernel install --user
-         jupyter sparqlkernel install --user --logdir /var/log/ipnb
-EOF
+        echo "Installing NLP packages (II) ..."
+        echo "Installing Unitex"
+        FILE=Unitex-GramLab-3.1-linux-x86_64.run
+        wget http://releases.unitexgramlab.org/3.1/linux-x86_64/$FILE
+        echo y | sh ./$FILE --nox11 --target /opt/Unitex-GramLab
+        cd /opt/Unitex-GramLab/Src/C++/build
+        make install
+        # remove the assistive package (does not not exist in headless Java)
+        sed -i -e '/^assistive_technologies=/s/^/#/' /etc/java-*-openjdk/accessibility.properties
+        # Add Unitex dir to PATH
+        sudo -u $1 sed -i -e '/export PATH=.*/s|$|:/opt/Unitex-GramLab/App|' /home/$1/.bash_profile
 
+        echo "Installing GrapeNLP"
+        add-apt-repository ppa:grapenlp/ppa
+        apt-get update
+        apt-get install -y grapenlp
       SHELL
+
+      vgrml.vm.provision "nlp.3",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Installing NLP packages (III) ..."
+        # Install Unitex in MATE menu
+        cat <<EOF >/usr/share/applications/unitex.desktop
+[Desktop Entry]
+Name=Unitex
+Comment=Unitex Grammar Development
+Exec=/opt//Unitex-GramLab/App/Unitex
+Icon=/opt/Unitex-GramLab/App/Unitex.ico
+Categories=Development;NLP;Java;
+Terminal=false
+Type=Application
+Keywords=development;Java;grammar;NLP;
+EOF
+        # Add unitex to menu favorites
+        F=/usr/share/glib-2.0/schemas/90_desktop.gschema.override
+        PREV=$(grep '^favourites=' $F)
+        NEW="${PREV%]*}, 'unitex.desktop']"
+        sed -i -e "/^favourites=/s/.*/$NEW/" $F
+        glib-compile-schemas /usr/share/glib-2.0/schemas/
+      SHELL
+      
     end
-    
+
+
     # .........................................
     # Install Maven
     # Do it only if explicitly requested (either by environment variable 
@@ -617,73 +713,6 @@ EOF
       SHELL
     end
 
-    # Install Scala development tools
-    if (provision_run_scala)
-      vgrml.vm.provision "scala",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        # Download & install Scala
-        cd install
-        VERSION=2.11.12
-        PKG=scala-$VERSION.deb
-        echo "Downloading & installing Scala $VERSION"
-        wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
-        sudo dpkg -i $PKG && rm $PKG 
-        # Install sbt
-        echo "Installing sbt"
-        # Install sbt
-        echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
-        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
-        # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs" 
-        cat <<EOF >> /home/$1/.emacs
-
-; Install MELPA package repository
-(require 'package)
-(add-to-list 'package-archives
-            '("melpa-stable" . "https://stable.melpa.org/packages/") t)
-(package-initialize)
-; Install Scala mode
-(unless (package-installed-p 'scala-mode)
-    (package-refresh-contents) (package-install 'scala-mode))
-
-EOF
-         chown $1.$1 /home/$1/.emacs
-      SHELL
-    end
-
-
-    # .........................................
-    # Modify Spark configuration to add or remove GraphFrames
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_GF when creating or by --provision-with graphframes)
-    if (provision_run_gf)
-      vgrml.vm.provision "graphframes",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ spark_basedir ],
-      inline: <<-SHELL
-        cd $1/current/conf
-        NAME=spark-defaults.conf
-        if [ $(readlink $NAME) = ${NAME}.local ]
-        then
-           echo "activating GraphFrames"
-           ln -sf ${NAME}.local.graphframes $NAME
-           ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ $(readlink $NAME) = ${NAME}.local.graphframes ]
-        then
-           echo "deactivating GraphFrames"
-           ln -sf ${NAME}.local ${NAME}
-           ln -sf spark-env.sh.local spark-env.sh
-        else
-           echo "No local configuration active"
-        fi
-      SHELL
-    end
 
     # .........................................
     # Install some Deep Learning stuff
@@ -695,8 +724,9 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
+         echo "Installing DL packages"
          sudo apt-get install -y git
-         pip install --upgrade tensorflow
+         pip install --upgrade setuptools tensorflow
          pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
          pip install --upgrade keras quiver
          pip install --upgrade torch torchvision
@@ -723,6 +753,16 @@ EOF
       keep_color: true,    
       inline: "systemctl start notebook"
 
+    # .........................................
+    # Start display manager, if we ar booting in graphical mode
+    if (vm_gui)
+      vgrml.vm.provision "60.gui",
+      type: "shell",
+      run: "always",
+      privileged: true,
+      inline: "systemctl start lightdm"
+    end
+    
   end # config.vm.define
 
 

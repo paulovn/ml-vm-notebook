@@ -1,4 +1,4 @@
-# Spark Virtual Machine
+# ML Virtual Machine
 
 A 64 bit virtual machine for Machine Learning/Data Science tasks. 
 Generated and provisioned with Vagrant.
@@ -8,7 +8,7 @@ the needed software packages, on an Ubuntu 18.04). On top of that, it configures
 and launches a Jupyter Notebook process, exported as an HTTP service to a local
 port. It allows creating notebooks with four different kernels:
   * Python 3.6 (plain Python, with additional libraries such as NumPy, SciPy,
-    Pandas, Matplotlib, Scikit-learn, etc), 
+    Pandas, Matplotlib, Scikit-learn, etc, included an NLP stack), 
   * Pyspark (Python 3.6 + libraries + Spark),
   * Scala 2.11 + Spark
   * R (with SparkR available, though not loaded by default).
@@ -20,7 +20,7 @@ The contents of the VM are:
 * [Apache Spark](http://spark.apache.org/) 2.4.0
 * Python 3.6.6
 * A virtualenv for Python 3.6.6 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
-* R 3.5.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* R 3.6.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
 * Spark notebook Kernels for Python 3.6, Scala ([SPylon](https://github.com/maxpoint/spylon-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.6 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
@@ -43,7 +43,7 @@ saving it will make it work in future executions.
   Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
-  * [Vagrant](https://www.vagrantup.com/) 1.8 or above
+  * [Vagrant](https://www.vagrantup.com/) 2.0 or above
 
 ### Process
 
@@ -55,11 +55,16 @@ saving it will make it work in future executions.
    spaces (since sometimes it causes problems).
 
 2. If desired, open the Vagrantfile with a text editor and customize the 
-   options at the top of the file; see the relevant comments. 
-   Specially interesting might be the amount of RAM/CPUs assigned to the
-   Virtual Machine and, if access to a remote Spark cluster is sought, the
-   IP address of the cluster. Another configurable value is the notebook
-   access password (in the `vm_password` variable).
+   options at the top of the file; see the relevant comments. Some variables
+   take action every time the VM starts, while others are only used at VM
+   creation.
+
+    * Specially interesting might be the amount of RAM/CPUs assigned to the
+      Virtual Machine and the variable controlling graphical mode (see below).
+
+    * Another configurable value is the notebook access password (in the 
+      `vm_password` variable); this is a _creation_ variable.
+
    Note that no customization is needed to make the VM work (i.e. it will 
    happily work with no changes to the Vagrantfile)
 
@@ -72,6 +77,9 @@ saving it will make it work in future executions.
 
 5. Then the VM will be started and provisioned. The process will print progress
    messages to the terminal.
+   
+6. Finally, there is a message saying the VM is ready to use. 
+   See *Operation* below
 
 The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM. The
 default URL in the Vagrantfile points to a box publicly available in ATLAS,
@@ -151,6 +159,23 @@ text consoles), as well as `nano`, a lightweight editor. Note that files in the
 `/vagrant` directory can be edited directly in the host, since it is a mounted
 folder.
 
+### Graphical mode
+
+By default the VM creates no graphical window (*headless* operation), and all
+interaction is done via Notebooks, console sessions or through the shared
+folders.
+
+However it is also possible to start in graphics mode, in this case a window
+will be created for the VM, and interaction through it is equivalente to using
+any standard VirtualBox VM.
+
+To start in graphical mode change the `vm_gui` variable in Vagrantfile to
+`true` and start the machine (or do a `vagrant reload` to reboot it if it was
+already running).
+
+Changing between graphical and headless modes can be done any number of times.
+
+
 
 ### Spark administration
 
@@ -195,6 +220,7 @@ and this is overwritten with a private key when launched for the first time, so
 ssh connections with certificate are more or less secure. But there are a number
 of security holes, among them:
   * Both the `root` and `vagrant` users use `vagrant` as password.
+  * The `vmuser` has `vmuser` as password.
   * Jupyter notebook listens on port 8008 with a very trivial password
     (if the host computer has no firewall, it can be accessed from anywhere)
 
@@ -210,16 +236,12 @@ It includes the following list:
 
 | name | package contents |
 | ---- | ---------------- |
-| rstudio | RStudio Server. See below for details |
+| rstudio | RStudio Server (see note below) |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
-| nlp | Some additional Python packages for Natural Language Processing |
 | mvn | Maven build automation tool for Java |
-| scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
-| dl | Deep Learning libraries (Keras, Theano, Tensorflow, Torch) |
-| graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 
 
 Note: for RStudio it will be also necessary to open port 8787 in the
-Vagrantfile and reload it. The user/password combination to be used is `vmuser`
-& `vmuser`
+Vagrantfile (uncomment the relevant line) and reload the VM. The user/password 
+combination to be used is again `vmuser` & `vmuser`
