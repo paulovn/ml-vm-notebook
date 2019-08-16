@@ -87,9 +87,11 @@ Vagrant.configure(2) do |config|
   # default one (perhaps because the box will be later packaged)
   #config.ssh.insert_key = false
 
-  # set auto_update to false, if you do NOT want to check the correct 
-  # additions version when booting this machine
-  config.vbguest.auto_update = false
+  # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
+  # check the correct additions version when booting this machine
+  if Vagrant.has_plugin?("vagrant-vbguest") == true
+    config.vbguest.auto_update = false
+  end
 
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
@@ -151,9 +153,6 @@ Vagrant.configure(2) do |config|
       vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]      
     end
 
-    # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
-    # check the correct additions version when booting this machine
-    #vgrml.vbguest.auto_update = false
 
     # **********************************************************************
     # Networking
