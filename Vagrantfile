@@ -88,7 +88,7 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
 provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('graphframes'))
 
-provision_run_rs = true
+#provision_run_rs = true
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
@@ -177,8 +177,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> uncomment if using RStudio
-    vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
-
+    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # In case we want to fix Spark ports
     #vgrml.vm.network :forwarded_port, host: 9234, guest: 9234
@@ -201,7 +200,6 @@ Vagrant.configure(2) do |config|
     # ===> we can also set the MAC address we will send to the DHCP server
     #:mac => "08002710A7ED"
 
-
     # ---- private interface ----
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
@@ -209,7 +207,6 @@ Vagrant.configure(2) do |config|
 
 
     vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
-
 
     # **********************************************************************
     # Provisioning: install Spark configuration files and startup scripts
@@ -421,8 +418,28 @@ EOF
      #POS=$(sed -n '/"argv"/=' $KERNEL_JSON)
      #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
     SHELL
+
+    # .........................................
+    # Create a configuration file for sparklyr/Rstudio
+    vgrml.vm.provision "20.Rconfig",
+    type: "shell", 
+    privileged: true,
+    keep_color: true,    
+    args: [ vm_username ],
+    inline: <<-SHELL
+      CFG=/usr/local/lib/R/site-library/sparklyr/conf/config-template.yml
+      mv $CFG ${CFG}.orig
+      # Create a config.yml file for R
+      cat <<'ENDFILE' > $CFG
+# R configuration options for Spark
+default:
+  spark.master: "local"
+  sparklyr.sparkui.url: "http://localhost:4040"
+  rstudio.spark.connections: "local"
+ENDFILE
+    SHELL
  
-    vgrml.vm.provision "20.extensions",
+    vgrml.vm.provision "30.extensions",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -445,7 +462,7 @@ EOF
     # .........................................
     # Install the Notebook startup script & configure it
     # Configure Spark execution mode & remote access if defined
-    vgrml.vm.provision "21.nbconfig",
+    vgrml.vm.provision "31.nbconfig",
     type: "shell", 
     privileged: true,
     keep_color: true,    
@@ -498,6 +515,7 @@ EOF
       args: [ vm_username, vm_password ],
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
+        apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
         PKG=rstudio-server-1.3.959-amd64.deb
@@ -507,8 +525,8 @@ EOF
         CNF=/etc/rstudio/rsession.conf
         grep -q r-libs-user $CNF || cat >>$CNF <<EOF 
 r-libs-user=~/.Rlibrary
-session-default-working-dir=/vagrant/R
-session-default-new-project-dir=/vagrant/R
+session-default-working-dir=/home/$1/R
+session-default-new-project-dir=/home/$1/R
 EOF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
