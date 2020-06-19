@@ -102,8 +102,8 @@ Vagrant.configure(2) do |config|
   # default one (perhaps because the box will be later packaged)
   #config.ssh.insert_key = false
 
-  # set auto_update to false, if you do NOT want to check the correct 
-  # additions version when booting this machine
+  # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
+  # check the correct additions version when booting this machine
   #config.vbguest.auto_update = false
 
   # Use our custom username, instead of the default "vagrant"
@@ -111,6 +111,7 @@ Vagrant.configure(2) do |config|
       config.ssh.username = vm_username
   end
   #config.ssh.username = "vagrant"
+  #config.vm.box_download_insecure = true
 
   config.vm.define "vm-spark-nb64" do |vgrml|
 
@@ -118,13 +119,8 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 2.2.1"
+    vgrml.vm.box_version = "= 2.2.2"
 
-    # Alternative place: UAM internal
-    #vgrml.vm.box = "uam/spark-base64"
-    #vgrml.vm.box_url = "http://svrbigdata.ii.uam.es/vm/uam-spark-base64.json"
-    # Alternative place: TID internal
-    #vgrml.vm.box = "tid/spark-base64"
     # Alternative place: local box
     #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
     #vgrml.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
@@ -137,6 +133,7 @@ Vagrant.configure(2) do |config|
     # Deactivate the usual synced folder and use instead a local subdirectory
     vgrml.vm.synced_folder ".", "/vagrant", disabled: true
     vgrml.vm.synced_folder "vmfiles", "/vagrant",
+      #mount_options: ["dmode=1775","fmode=664", "uid=1001", "gid=1001"],
       mount_options: ["dmode=775","fmode=664"],
       disabled: false
     #owner: vm_username
@@ -153,6 +150,7 @@ Vagrant.configure(2) do |config|
       vb.cpus = vm_cpus
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
+      # Control guest clock adjustment
       vb.customize [ "guestproperty", "set", :id,
                      "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
                      10000 ]
@@ -160,10 +158,6 @@ Vagrant.configure(2) do |config|
                      "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
                      1 ]
     end
-
-    # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
-    # check the correct additions version when booting this machine
-    #vgrml.vbguest.auto_update = false
 
     # **********************************************************************
     # Networking
@@ -185,9 +179,6 @@ Vagrant.configure(2) do |config|
     # =====> uncomment if using RStudio
     vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
-    # Quiver
-    # =====> uncomment if using Quiver visualization for Keras
-    #vgrml.vm.network :forwarded_port, host: 5000, guest: 5000
 
     # In case we want to fix Spark ports
     #vgrml.vm.network :forwarded_port, host: 9234, guest: 9234
@@ -254,6 +245,16 @@ test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
       chown $1.$1 /home/$1/.bash_profile
 
+      # Create a config.yml file for R
+      cat <<'ENDFILE' > /home/$1/R/config.yml
+# R configuration options
+default:
+  spark.master: "local"
+  sparklyr.sparkui.url: "http://localhost:4040"
+  rstudio.spark.connections: "local"
+ENDFILE
+      chown $1.$1 /home/$1/config.yml
+
       # Create some local files as the designated user
       su -l "$1" <<'USEREOF'
 for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
@@ -296,11 +297,13 @@ USEREOF
     args: [ vm_username, vm_password, port_nb_internal, spark_basedir ],
     inline: <<-SHELL
      USERNAME=$1
+     NOTEBOOK_BASEDIR=/home/$USERNAME/IPNB
      PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
      cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
+import os
 c = get_config()
 # define server
 c.NotebookApp.ip = '0.0.0.0'
@@ -308,7 +311,7 @@ c.NotebookApp.port = $3
 c.NotebookApp.password = u'$PASS'
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
-c.NotebookApp.notebook_dir = u'/home/$USERNAME/IPNB'
+c.NotebookApp.notebook_dir = os.environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
 # Preload matplotlib
 c.IPKernelApp.matplotlib = 'inline'
 # Kernel heartbeat interval in seconds.
@@ -317,6 +320,9 @@ c.KernelRestarter.time_to_dead = 30.0
 c.KernelRestarter.debug = True
 EOF
      chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
+
+     # --------------------- Set the notebook service to start
+     systemctl enable notebook
     SHELL
 
     vgrml.vm.provision "11.pyspark",
@@ -454,11 +460,12 @@ EOF
      # note we do not enable the service -- we'll explicitly start it at the end
 
      # Create the config for IPython notebook
-     CFGD=/etc/sysconfig/
+     CFGD=/etc/sysconfig
      test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
      cat <<-EOF > $CFGD/jupyter-notebook
 NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
+NOTEBOOK_BASEDIR="/home/$1/IPNB"
 EOF
 
      # Configure remote addresses
@@ -470,6 +477,9 @@ EOF
      # Set the name of the initially active config
      echo "Configuring Spark mode as: $2"
      jupyter-notebook-mgr set-mode "$2"
+
+     # Start the service
+     systemctl start notebook
   SHELL
 
     # *************************************************************************
@@ -490,12 +500,16 @@ EOF
         echo "Downloading & installing RStudio Server"
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.1.463-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/$PKG
+        PKG=rstudio-server-1.3.959-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/xenial/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
-        # Define the directory for the user library
+        # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
-        grep -q r-libs-user $CNF || echo "r-libs-user=~/.Rlibrary" >> $CNF
+        grep -q r-libs-user $CNF || cat >>$CNF <<EOF 
+r-libs-user=~/.Rlibrary
+session-default-working-dir=/vagrant/R
+session-default-new-project-dir=/vagrant/R
+EOF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
@@ -661,12 +675,12 @@ EOF
       inline: <<-SHELL
         cd $1/current/conf
         NAME=spark-defaults.conf
-        if [ $(readlink $NAME) = ${NAME}.local ]
+        if [ "$(readlink $NAME)" = "${NAME}.local" ]
         then
            echo "activating GraphFrames"
            ln -sf ${NAME}.local.graphframes $NAME
            ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ $(readlink $NAME) = ${NAME}.local.graphframes ]
+        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
         then
            echo "deactivating GraphFrames"
            ln -sf ${NAME}.local ${NAME}
@@ -687,12 +701,10 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         sudo apt-get install -y git
-         pip install --upgrade tensorflow
-         pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
-         pip install --upgrade keras quiver
+         # Tensorflow 2 needs pip >= 19.0
+         pip install --upgrade pip
+         pip install --upgrade tensorflow-cpu
          pip install --upgrade torch torchvision
-         sudo apt-get remove -y git 
        SHELL
     end
 
@@ -701,16 +713,10 @@ EOF
 
     # .........................................
     # Start Jupyter Notebook
-    # Note: this one we run it every time the machine boots, since during 
-    # the VM boot sequence the startup script is executed before vagrant has 
-    # mounted the shared folder, and hence it fails. 
-    # Running it as a provisioning makes it run *after* vagrant mounts, so 
-    # this way it works.
-    # [An alternative would be to force mounting on startup, by adding the
-    # vboxsf mount point to /etc/fstab during provisioning]
+    # This is normally not needed (the service starts automatically upon boot)
     vgrml.vm.provision "50.nbstart", 
       type: "shell", 
-      run: "always",
+      run: "never",
       privileged: true,
       keep_color: true,    
       inline: "systemctl start notebook"
