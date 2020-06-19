@@ -218,10 +218,10 @@ It includes the following list:
 | nlp | Some additional Python packages for Natural Language Processing |
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
-| dl | Deep Learning libraries (Keras, Theano, Tensorflow, Torch) |
+| dl | Deep Learning libraries (Tensorflow, PyTorch) |
 | graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 
 
-Note: for RStudio it is also necessary to open port 8787 in the
-Vagrantfile (which is open by default). The user/password combination to be used is `vmuser`
+Note: for RStudio it is also necessary that Vagrant opens port 8787 (in the Vagrantfile
+it is open by default). The user/password combination to be used is `vmuser`
 & `vmuser`
