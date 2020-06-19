@@ -17,10 +17,10 @@ The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 2.4.0
-* Python 3.6.6
-* A virtualenv for Python 3.6.6 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
-* R 3.5.1 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* [Apache Spark](http://spark.apache.org/) 2.4.6
+* Python 3.6.7
+* A virtualenv for Python 3.6.7 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
+* R 3.6.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
 * Spark notebook Kernels for Python 3.6, Scala ([SPylon](https://github.com/maxpoint/spylon-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.6 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
@@ -43,7 +43,8 @@ saving it will make it work in future executions.
   Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
-  * [Vagrant](https://www.vagrantup.com/) 1.8 or above
+  * [Vagrant](https://www.vagrantup.com/) 2.0 or above (if possible, use the latest version available)
+
 
 ### Process
 
