@@ -24,7 +24,7 @@ The contents of the VM are:
 * Spark notebook Kernels for Python 3.6, Scala ([SPylon](https://github.com/maxpoint/spylon-kernel)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.6 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
-* RStudio Server (provisioned upon VM installation)
+* RStudio Server (optional provisioning)
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware.
 To develop notebooks in Python for Spark, the `Pyspark (Py 3)` kernel must be
@@ -212,7 +212,7 @@ It includes the following list:
 
 | name | package contents |
 | ---- | ---------------- |
-| rstudio | RStudio Server (installed by default) |
+| rstudio | RStudio Server (see note below) |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
 | nlp | Some additional Python packages for Natural Language Processing |
@@ -222,6 +222,6 @@ It includes the following list:
 | graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 
 
-Note: for RStudio it is also necessary that Vagrant opens port 8787 (in the Vagrantfile
-it is open by default). The user/password combination to be used is `vmuser`
-& `vmuser`
+Note: for RStudio it is also necessary that Vagrant opens port 8787 (this is
+defined in the Vagrantfile). Once open (and the VM reloaded), the user/password
+combination to be used is `vmuser` & `vmuser`

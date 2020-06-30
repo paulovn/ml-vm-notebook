@@ -176,7 +176,7 @@ Vagrant.configure(2) do |config|
      auto_correct: true
 
     # RStudio server
-    # =====> uncomment if using RStudio
+    # =====> if using RStudio, uncomment the following line and reload the VM
     #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # In case we want to fix Spark ports
