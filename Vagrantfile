@@ -5,7 +5,7 @@
 # **************************************************************************
 
 # --------------------------------------------------------------------------
-# Variables defining the configuration of Spark & notebook 
+# Variables defining the configuration of Spark & notebook
 # Modify as needed
 
 # RAM memory used for the VM, in MB
@@ -13,7 +13,7 @@ vm_memory = '2048'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
-# Password to use to access the Notebook web interface 
+# Password to use to access the Notebook web interface
 vm_password = 'vmuser'
 
 # Username that will run all spark processes.
@@ -32,7 +32,7 @@ port_nb = 8008
 
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
-# It can be changed at runtime by executing inside the virtual machine, as 
+# It can be changed at runtime by executing inside the virtual machine, as
 # root user, "service notebook set-mode <mode>"
 spark_mode = 'local'
 
@@ -42,10 +42,10 @@ spark_mode = 'local'
 # They can also be modified at runtime by executing inside the virtual
 # machine: "sudo service notebook set-addr <A> <B> <C>"
 # **IMPORTANT**: If remote mode is to be used, the virtual machine needs
-# a network interface in bridge mode. In that case Uncomment the relevant
+# a network interface in bridge mode. In that case uncomment the relevant
 # lines in the networking section below
 
-# [A] The location of the cluster master (the YARN Resource Manager in Yarn 
+# [A] The location of the cluster master (the YARN Resource Manager in Yarn
 # mode, or the Spark master in standalone mode)
 spark_master = 'samson02.hi.inet'
 # [B] The host running the HDFS namenode
@@ -56,7 +56,7 @@ spark_history_server = 'samson03.hi.inet:18080'
 
 
 # --------------------------------------------------------------------------
-# Variables defining the Spark installation in the base box. 
+# Variables defining the Spark installation in the base box.
 # Don't change these
 
 # The place where Spark is deployed inside the local machine
@@ -121,9 +121,8 @@ Vagrant.configure(2) do |config|
     vgrml.vm.box = "paulovn/spark-base64"
     vgrml.vm.box_version = "= 2.2.2"
 
-    # Alternative place: local box
+    # Alternative place: a local box
     #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
-    #vgrml.vm.box_url = "http://artifactory.hi.inet/artifactory/vagrant-machinelearning/tid-spark-base64.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -138,7 +137,7 @@ Vagrant.configure(2) do |config|
       disabled: false
     #owner: vm_username
     #auto_mount: false
-  
+
     # Customize the virtual machine: set hostname & allocated RAM
     vgrml.vm.hostname = "vgr-ipnb-spark"
     vgrml.vm.provider :virtualbox do |vb|
@@ -164,19 +163,19 @@ Vagrant.configure(2) do |config|
 
     # ---- NAT interface ----
     # NAT port forwarding
-    vgrml.vm.network :forwarded_port, 
+    vgrml.vm.network :forwarded_port,
      #auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
     # Spark driver UI
-    vgrml.vm.network :forwarded_port, host: 4040, guest: 4040, 
+    vgrml.vm.network :forwarded_port, host: 4040, guest: 4040,
      auto_correct: true
     # Spark driver UI for the 2nd application (e.g. a command-line job)
     vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
      auto_correct: true
 
     # RStudio server
-    # =====> uncomment if using RStudio
+    # =====> if using RStudio, uncomment the following line and reload the VM
     #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # In case we want to fix Spark ports
@@ -189,7 +188,7 @@ Vagrant.configure(2) do |config|
     # ---- bridged interface ----
     # Declare a public network
     # This enables the machine to be connected from outside, which is a
-    # must for a Spark driver [it needs SPARK_LOCAL_IP to be set to 
+    # must for a Spark driver [it needs SPARK_LOCAL_IP to be set to
     # the outside-visible interface].
     # =====> Uncomment the following two lines to enable bridge mode:
     #vgrml.vm.network "public_network",
@@ -214,10 +213,10 @@ Vagrant.configure(2) do |config|
     # .........................................
     # Create the user to run Spark jobs (esp. notebook processes)
     vgrml.vm.provision "01.nbuser",
-    type: "shell", 
+    type: "shell",
     privileged: true,
     args: [ vm_username ],
-    inline: <<-SHELL      
+    inline: <<-SHELL
       id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
 
       # Create the .bash_profile file
@@ -267,11 +266,11 @@ USEREOF
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
-      
+
     SHELL
 
     # Mount the shared folder with the new created user, so that it can write
-    # ---> don't, instead we add the user to the vagrant group and mount the 
+    # ---> don't, instead we add the user to the vagrant group and mount the
     #      shared folder with group permissions
 #    vgrml.vm.provision "02.mount",
 #    type: "shell",
@@ -288,9 +287,9 @@ USEREOF
     # and install all kernels: Pyspark, SPylon (Scala), IRKernel, and extensions
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
     vgrml.vm.provision "10.config",
-    type: "shell", 
+    type: "shell",
     privileged: true,
-    keep_color: true,    
+    keep_color: true,
     args: [ vm_username, vm_password, port_nb_internal, spark_basedir ],
     inline: <<-SHELL
      USERNAME=$1
@@ -422,9 +421,9 @@ EOF
     # .........................................
     # Create a configuration file for sparklyr/Rstudio
     vgrml.vm.provision "20.Rconfig",
-    type: "shell", 
+    type: "shell",
     privileged: true,
-    keep_color: true,    
+    keep_color: true,
     args: [ vm_username ],
     inline: <<-SHELL
       CFG=/usr/local/lib/R/site-library/sparklyr/conf/config-template.yml
@@ -438,7 +437,7 @@ default:
   rstudio.spark.connections: "local"
 ENDFILE
     SHELL
- 
+
     vgrml.vm.provision "30.extensions",
     type: "shell",
     privileged: true,
@@ -463,9 +462,9 @@ EOF
     # Install the Notebook startup script & configure it
     # Configure Spark execution mode & remote access if defined
     vgrml.vm.provision "31.nbconfig",
-    type: "shell", 
+    type: "shell",
     privileged: true,
-    keep_color: true,    
+    keep_color: true,
     args: [ vm_username,
             spark_mode, spark_master, spark_namenode, spark_history_server ],
     inline: <<-SHELL
@@ -489,7 +488,7 @@ EOF
      if [ "$3" ]; then
        jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
        jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
-     fi 
+     fi
 
      # Set the name of the initially active config
      echo "Configuring Spark mode as: $2"
@@ -504,8 +503,8 @@ EOF
 
     # .........................................
     # Install RStudio server
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_RSTUDIO when creating or by --provision-with rstudio) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_RSTUDIO when creating or by --provision-with rstudio)
     # *** Don't forget to also uncomment forwarding for port 8787!
     if (provision_run_rs)
       vgrml.vm.provision "rstudio",
@@ -523,7 +522,7 @@ EOF
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
-        grep -q r-libs-user $CNF || cat >>$CNF <<EOF 
+        grep -q r-libs-user $CNF || cat >>$CNF <<EOF
 r-libs-user=~/.Rlibrary
 session-default-working-dir=/home/$1/R
 session-default-new-project-dir=/home/$1/R
@@ -540,7 +539,7 @@ EOF
 
     # .........................................
     # Install the necessary components for nbconvert to work.
-    # Do it only if explicitly requested (either by environment variable 
+    # Do it only if explicitly requested (either by environment variable
     # PROVISION_NBC when creating or by --provision-with nbc)
     if (provision_run_nbc)
       vgrml.vm.provision "nbc",
@@ -579,8 +578,8 @@ EOF
 
     # .........................................
     # Install additional packages for NLP
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_NLP when creating or by --provision-with nlp) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_NLP when creating or by --provision-with nlp)
     if (provision_run_nlp)
       vgrml.vm.provision "nlp",
       type: "shell",
@@ -596,8 +595,8 @@ EOF
 
     # .........................................
     # Install a couple of additional Jupyter kernels
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_KRN when creating or by --provision-with kernels) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_KRN when creating or by --provision-with kernels)
     if (provision_run_krn)
       vgrml.vm.provision "kernels",
       type: "shell",
@@ -615,11 +614,11 @@ EOF
 
       SHELL
     end
-    
+
     # .........................................
     # Install Maven
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_MVN when creating or by --provision-with mvn) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_MVN when creating or by --provision-with mvn)
     if (provision_run_mvn)
       vgrml.vm.provision "mvn",
       type: "shell",
@@ -634,7 +633,7 @@ EOF
         FILE=$PKG-bin.tar.gz
         cd /tmp
         wget http://apache.rediris.es/maven/maven-3/$VERSION/binaries/$FILE
-        rm -rf /home/$1/bin/mvn $DEST 
+        rm -rf /home/$1/bin/mvn $DEST
         mkdir -p $DEST
         tar zxvf $FILE -C $DEST
         su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
@@ -655,14 +654,14 @@ EOF
         PKG=scala-$VERSION.deb
         echo "Downloading & installing Scala $VERSION"
         wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
-        sudo dpkg -i $PKG && rm $PKG 
+        sudo dpkg -i $PKG && rm $PKG
         # Install sbt
         echo "Installing sbt"
         # Install sbt
         echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
         # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs" 
+        echo "Configuring scala-mode in Emacs"
         cat <<EOF >> /home/$1/.emacs
 
 ; Install MELPA package repository
@@ -711,8 +710,8 @@ EOF
 
     # .........................................
     # Install some Deep Learning stuff
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_DL when creating or by --provision-with dl) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_DL when creating or by --provision-with dl)
     if (provision_run_dl)
       vgrml.vm.provision "dl",
       type: "shell",
@@ -732,11 +731,11 @@ EOF
     # .........................................
     # Start Jupyter Notebook
     # This is normally not needed (the service starts automatically upon boot)
-    vgrml.vm.provision "50.nbstart", 
-      type: "shell", 
+    vgrml.vm.provision "50.nbstart",
+      type: "shell",
       run: "never",
       privileged: true,
-      keep_color: true,    
+      keep_color: true,
       inline: "systemctl start notebook"
 
   end # config.vm.define
