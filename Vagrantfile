@@ -81,7 +81,7 @@ provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
         (vagrant_command == 'provision' && \
            (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
 provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('nlp'))
+        (vagrant_command == 'provision' && ARGV.include?('nlp.1,nlp.2,nlp.3'))
 provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('dl'))
 provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
@@ -91,13 +91,20 @@ provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
 provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('graphframes'))
 provision_run_desktop  = ENV['PROVISION_DESKTOP'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('desktop'))
+        (vagrant_command == 'provision' && ARGV.include?('desktop.1,desktop.2'))
 provision_run_desktop_full  = ENV['PROVISION_DESKTOP_FULL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('desktop_full'))
+provision_run_rasa  = ENV['PROVISION_RASA'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('rasa'))
 
 # Force installation of a graphical desktop
 # provision_run_desktop = true
 # provision_run_desktop_full = true
+
+# Activate provisioning for NLP processing
+provision_run_desktop = true
+provision_run_nlp = true
+provision_run_dl = true
 
 
 # --------------------------------------------------------------------------
@@ -182,12 +189,18 @@ Vagrant.configure(2) do |config|
      #auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
+    # Rasa
+    vgrml.vm.network :forwarded_port, host: 5000, guest: 5000,
+     auto_correct: true
+    vgrml.vm.network :forwarded_port, host: 8880, guest: 8880,
+     auto_correct: true
+
     # Spark driver UI
-    vgrml.vm.network :forwarded_port, host: 4040, guest: 4040,
-     auto_correct: true
+    ##vgrml.vm.network :forwarded_port, host: 4040, guest: 4040,
+    ## auto_correct: true
     # Spark driver UI for the 2nd application (e.g. a command-line job)
-    vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
-     auto_correct: true
+    ##vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
+    ## auto_correct: true
 
     # RStudio server
     # =====> if using RStudio, uncomment the following line and reload the VM
@@ -284,8 +297,6 @@ export PATH=$HOME/bin:$PATH:$HOME/.local/bin
 export PYSPARK_DRIVER_PYTHON=ipython
 # Place where to keep user R packages (used outside RStudio Server)
 export R_LIBS_USER=~/.Rlibrary
-# Load Theano initialization file
-export THEANORC=/etc/theanorc:~/.theanorc
 # Jupyter uses this to define datadir but it is undefined when using "runuser"
 test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
@@ -336,7 +347,7 @@ USEREOF
     # .........................................
     # Install graphical desktop
     if (provision_run_desktop)
-      vgrml.vm.provision "05.desktop",
+      vgrml.vm.provision "desktop.1",
       type: "shell", 
       privileged: true,
       inline: <<-SHELL
@@ -350,7 +361,7 @@ USEREOF
         systemctl disable lightdm
       SHELL
       
-      vgrml.vm.provision "05.desktop.theme",
+      vgrml.vm.provision "desktop.2",
       type: "shell", 
       privileged: true,
       args: [ vm_username ],
@@ -379,7 +390,7 @@ SCHEMA
     end
 
     if (provision_run_desktop_full)
-      vgrml.vm.provision "05.desktop-full",
+      vgrml.vm.provision "desktop.full",
       type: "shell",
       privileged: true,
       inline: "apt-get install -y ubuntu-desktop"
@@ -690,7 +701,11 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
         echo "Installing NLP packages (I)"
-        su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
+            su -l "vagrant" <<'USEREOF'
+pip install nltk sklearn_crfsuite spacy stanfordcorenlp==3.9.1.1 jellyfish beautifulsoup4 textblob
+pip install https://github.com/paulovn/nlglib/archive/v0.3.0+f1.tar.gz
+pip install https://github.com/paulovn/pyDAWG/archive/v1.2.2.tar.gz
+#USEREOF
       SHELL
 
       vgrml.vm.provision "nlp.2",
@@ -738,12 +753,33 @@ Keywords=development;Java;grammar;NLP;
 EOF
         # Add unitex to menu favorites
         F=/usr/share/glib-2.0/schemas/90_desktop.gschema.override
-        PREV=$(grep '^favourites=' $F)
-        NEW="${PREV%]*}, 'unitex.desktop']"
-        sed -i -e "/^favourites=/s/.*/$NEW/" $F
-        glib-compile-schemas /usr/share/glib-2.0/schemas/
+        if test -f $F
+        then
+                PREV=$(grep '^favourites=' $F)
+                NEW="${PREV%]*}, 'unitex.desktop']"
+                sed -i -e "/^favourites=/s/.*/$NEW/" $F
+                glib-compile-schemas /usr/share/glib-2.0/schemas/
+        fi
       SHELL
       
+    end
+
+    # Install RASA-NLU (1.x)
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_RASA when creating or by --provision-with mvn)
+    if (provision_run_rasa)
+      vgrml.vm.provision "rasa",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        VENV=/home/$1/venv/rasa
+        virtualenv -p python3.6 $VENV  --no-site-packages
+        $VENV/bin/pip install rasa-nlu flask ipykernel spacy sklearn_crfsuite
+        /home/$1/venv/rasa/bin/python -m ipykernel install --user --name='py3-rasa' --display-name='Py3 [RASA]'
+
+      SHELL
     end
 
     # .........................................
@@ -870,7 +906,7 @@ EOF
       inline: "systemctl start notebook"
 
     # .........................................
-    # Start display manager, if we ar booting in graphical mode
+    # Start display manager, if we are booting in graphical mode
     if (vm_gui)
       vgrml.vm.provision "60.gui",
       type: "shell",
