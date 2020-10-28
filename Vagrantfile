@@ -94,8 +94,10 @@ provision_run_desktop  = ENV['PROVISION_DESKTOP'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('desktop.1,desktop.2'))
 provision_run_desktop_full  = ENV['PROVISION_DESKTOP_FULL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('desktop_full'))
-provision_run_rasa  = ENV['PROVISION_RASA'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('rasa'))
+provision_run_rasa  = ENV['PROVISION_RASA1'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('rasa1'))
+provision_run_clean  = ENV['PROVISION_CLEAN'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('clean'))
 
 # Force installation of a graphical desktop
 # provision_run_desktop = true
@@ -702,7 +704,7 @@ EOF
       inline: <<-SHELL
         echo "Installing NLP packages (I)"
             su -l "vagrant" <<'USEREOF'
-pip install nltk sklearn_crfsuite spacy stanfordcorenlp==3.9.1.1 jellyfish beautifulsoup4 textblob
+pip install nltk sklearn_crfsuite spacy stanfordcorenlp==3.9.1.1 jellyfish beautifulsoup4 textblob rasa flask
 pip install https://github.com/paulovn/nlglib/archive/v0.3.0+f1.tar.gz
 pip install https://github.com/paulovn/pyDAWG/archive/v1.2.2.tar.gz
 #USEREOF
@@ -767,18 +769,20 @@ EOF
     # Install RASA-NLU (1.x)
     # Do it only if explicitly requested (either by environment variable
     # PROVISION_RASA when creating or by --provision-with mvn)
-    if (provision_run_rasa)
-      vgrml.vm.provision "rasa",
+    if (provision_run_rasa1)
+      vgrml.vm.provision "rasa1",
       type: "shell",
-      privileged: false,
+      privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VENV=/home/$1/venv/rasa
-        virtualenv -p python3.6 $VENV  --no-site-packages
-        $VENV/bin/pip install rasa-nlu flask ipykernel spacy sklearn_crfsuite
-        /home/$1/venv/rasa/bin/python -m ipykernel install --user --name='py3-rasa' --display-name='Py3 [RASA]'
-
+        su -l "$1" <<'USEREOF'
+           VENVDIR="$HOME/venv/rasa"
+           echo "VENV: $VENVDIR"
+           virtualenv -p python3.6 $VENVDIR  --no-site-packages
+           $VENVDIR/bin/pip install rasa-nlu flask ipykernel spacy sklearn_crfsuite
+           $VENVDIR/bin/python -m ipykernel install --user --name='py3-rasa' --display-name='Py3 [RASA]'
+USEREOF
       SHELL
     end
 
@@ -890,6 +894,59 @@ EOF
          pip install --upgrade tensorflow-cpu
          pip install --upgrade torch torchvision
        SHELL
+    end
+
+    # .........................................
+    # Clean
+    if (provision_run_clean)
+      vgrml.vm.provision "clean",
+      type: "shell",
+      args: [ vm_username ],
+      privileged: true,
+      inline: <<-SHELL
+        echo "Cleaning temporal & installation files"
+        apt-get autoclean -y
+        apt-get clean -y
+
+        # Remove bash history for root
+        unset HISTFILE
+        rm -f /root/.bash_history
+
+        # Cleanup log files
+        echo "Removing logfiles"
+        find /var/log -type f | while read f; do echo -ne '' > $f; done;
+
+        # Remove all temporal files
+        rm -rf /tmp/* /var/tmp/*
+
+        # Remove leftovers
+        for HH in /home/vagrant /home/$1
+        do
+           rm -rf $HH/.cache/pip $HH/.ivy2/cache $HH/.bash_history $HH/install/* $HH/Soft
+           rm -rf /opt/ipnb/share/jupyter/nbextensions/.git*
+        done
+
+        # Zero free space
+        echo "Whiteout root & boot partitions"
+        for fs in / /boot/
+        do
+           count=$(df --sync -kP / | tail -n1  | awk -F ' ' '{print $4}') 
+           let count--
+           dd if=/dev/zero of=${fs}whitespace bs=1024 count=$count
+           rm ${fs}whitespace;
+        done
+        sync
+
+        # Zero the swap space
+        swappart=$(cat /proc/swaps | tail -n1 | awk -F ' ' '{print $1}')
+        if [ "$swappart" != "" ]; then
+          swapoff $swappart;
+          dd if=/dev/zero of=$swappart;
+          mkswap $swappart;
+          swapon $swappart;
+        fi
+
+      SHELL
     end
 
 
