@@ -13,7 +13,7 @@ vm_memory = '2048'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
-# Password to use to access the Notebook web interface 
+# Password to use to access the Notebook web interface
 vm_password = 'vmuser'
 
 # Username that will run all processes.
@@ -63,22 +63,27 @@ Vagrant.configure(2) do |config|
   # default one (perhaps because the box will be later packaged)
   #config.ssh.insert_key = false
 
+  # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
+  # check the correct additions version when booting this machine
+  if Vagrant.has_plugin?("vagrant-vbguest") == true
+    config.vbguest.auto_update = false
+  end
+
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
       config.ssh.username = vm_username
   end
   #config.ssh.username = "vagrant"
-
+  #config.vm.box_download_insecure = true
 
   config.vm.define "vm-machinelearning-box" do |vgrml|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 2.2.1"
+    vgrml.vm.box_version = "= 3.0.0"
 
     # Alternative place: box elsewhere
-    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-221-box"
-
+    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-300-box"
     # Alternative place: local box
     #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/ml-base64-LOCAL.json"
 
@@ -94,7 +99,7 @@ Vagrant.configure(2) do |config|
       disabled: false
     #owner: vm_username
     #auto_mount: false
-  
+
     # Customize the virtual machine: set hostname & allocated RAM
     vgrml.vm.hostname = "vm-machinelearning"
     vgrml.vm.provider :virtualbox do |vb|
@@ -104,38 +109,35 @@ Vagrant.configure(2) do |config|
       vb.memory = vm_memory
       # Set the number of CPUs
       vb.cpus = vm_cpus
+      # Use the DNS proxy of the NAT engine (helps in some VPN environments)
+      #vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      # Control guest clock adjustment
+      vb.customize ["guestproperty", "set", :id,
+                    "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
+                    10000]
+      vb.customize ["guestproperty", "set", :id,
+                    "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
+                    1]
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
-      # Fix clock syncing
-      vb.customize [ "guestproperty", "set", :id,
-                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
-                     10000 ]
-      vb.customize [ "guestproperty", "set", :id,
-                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
-                     1 ]
+      # Adjust copy/paste between guest & host (for GUI startups)
+      vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+      vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
     end
-
-    # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
-    # check the correct additions version when booting this machine
-    #vgrml.vbguest.auto_update = false
 
     # **********************************************************************
     # Networking
 
     # ---- NAT interface ----
     # NAT port forwarding
-    vgrml.vm.network :forwarded_port, 
-     auto_correct: true,
+    vgrml.vm.network :forwarded_port,
+     #auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
 
     # RStudio server
-    # =====> uncomment if using RStudio
+    # =====> if using RStudio, uncomment the following line and reload the VM
     #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
-
-    # Quiver
-    # =====> uncomment if using Quiver visualization for Keras
-    #vgrml.vm.network :forwarded_port, host: 5000, guest: 5000
 
     # ---- bridged interface ----
     # Declare a public network
@@ -149,14 +151,13 @@ Vagrant.configure(2) do |config|
     # ===> we can also set the MAC address we will send to the DHCP server
     #:mac => "08002710A7ED"
 
-
     # ---- private interface ----
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
 
 
     # **********************************************************************
@@ -165,11 +166,14 @@ Vagrant.configure(2) do |config|
     # .........................................
     # Create the user to run jobs (esp. notebook processes)
     vgrml.vm.provision "01.nbuser",
-    type: "shell", 
+    type: "shell",
     privileged: true,
-    args: [ vm_username ],
+    args: [ vm_username, vm_password ],
     inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
+      # Create user
+      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo "$1" -s /bin/bash
+      # Set the password for the user
+      echo "$1:$2" | chpasswd
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -184,8 +188,6 @@ fi
 export PATH=$HOME/bin:$PATH:$HOME/.local/bin
 # Place where to keep user R packages (used outside RStudio Server)
 export R_LIBS_USER=~/.Rlibrary
-# Load Theano initialization file
-export THEANORC=/etc/theanorc:~/.theanorc
 # Jupyter uses this to define datadir but it is undefined when using "runuser"
 test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
@@ -206,53 +208,35 @@ USEREOF
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
-      
-    SHELL
 
-    # Mount the shared folder with the new created user, so that it can write
-    # ---> don't, instead we add the user to the vagrant group and mount the 
-    #      shared folder with group permissions
-#    vgrml.vm.provision "02.mount",
-#    type: "shell",
-#    privileged: true,
-#    keep_color: true,
-#    args: [ vm_username ],
-#    inline: <<-SHELL
-#umount /vagrant
-#mount -t vboxsf -o uid=$(id -u $1),gid=$(id -g $1) vagrant /vagrant
-#SHELL
+    SHELL
 
     # .........................................
     # Create the IPython Notebook profile
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
     vgrml.vm.provision "10.config",
-    type: "shell", 
+    type: "shell",
     privileged: true,
-    keep_color: true,    
+    keep_color: true,
     args: [ vm_username, vm_password, port_nb_internal ],
     inline: <<-SHELL
      USERNAME=$1
+     NOTEBOOK_BASEDIR=/home/$USERNAME/IPNB
      PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
-     cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
-c = get_config()
-# define server
+     CFGFILE="/home/$USERNAME/.jupyter/jupyter_notebook_config.py"
+     cat <<-EOF >$CFGFILE
+from os import environ
 c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.port = $3
 c.NotebookApp.password = u'$PASS'
+c.NotebookApp.notebook_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
-c.NotebookApp.notebook_dir = u'/home/$USERNAME/IPNB'
-# Preload matplotlib
-c.IPKernelApp.matplotlib = 'inline'
-# Kernel heartbeat interval in seconds.
-# This is in jupyter_client.restarter. Not sure if it gets picked up
-c.KernelRestarter.time_to_dead = 30.0
-c.KernelRestarter.debug = True
 EOF
-     chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
+     chown $USERNAME.$USERNAME $CFGFILE
     SHELL
 
     vgrml.vm.provision "13.ir",
@@ -271,7 +255,7 @@ EOF
 EOF
     SHELL
  
-    vgrml.vm.provision "20.extensions",
+    vgrml.vm.provision "30.extensions",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -293,36 +277,58 @@ EOF
 
     # .........................................
     # Install the Notebook startup script & configure it
-    vgrml.vm.provision "21.nbconfig",
-    type: "shell", 
+    vgrml.vm.provision "31.nbconfig",
+    type: "shell",
     privileged: true,
-    keep_color: true,    
+    keep_color: true,
     args: [ vm_username ],
     inline: <<-SHELL
+     # Create the system config for IPython notebook
+     CFGD=/etc/sysconfig
+     test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
+     cat <<-EOF > $CFGD/jupyter-notebook
+NOTEBOOK_USER="$1"
+NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
+NOTEBOOK_BASEDIR="/home/$1/IPNB"
+EOF
      # Link the IPython mgr script so that it can be found by root
      SCR=jupyter-notebook-mgr
      chmod 775 /opt/ipnb/bin/$SCR
      rm -f /usr/sbin/$SCR
      ln -s /opt/ipnb/bin/$SCR /usr/sbin
-     # note we do not enable the service -- we'll explicitly start it at the end
 
-     # Create the config for IPython notebook
-     CFGD=/etc/sysconfig/
-     test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
-     cat <<-EOF > $CFGD/jupyter-notebook
-NOTEBOOK_USER="$1"
-NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
-EOF
+     # Enable the service
+     systemctl enable notebook
 
+     # Start the service
+     echo "Starting notebook service"
+     systemctl start notebook
   SHELL
 
     # *************************************************************************
     # Optional packages
 
+    # Install some Deep Learning stuff
+    # Do it only if explicitly requested (either by environment variable 
+    # PROVISION_DL when creating or by --provision-with dl) 
+    if (provision_run_dl)
+      vgrml.vm.provision "dl",
+      type: "shell",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+         # Tensorflow 2 needs pip >= 19.0
+         pip install --upgrade pip
+         pip install --upgrade tensorflow-cpu
+         pip install --upgrade torch torchvision
+       SHELL
+    end
+
+
     # .........................................
     # Install RStudio server
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_RSTUDIO when creating or by --provision-with rstudio) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_RSTUDIO when creating or by --provision-with rstudio)
     # *** Don't forget to also uncomment forwarding for port 8787!
     if (provision_run_rs)
       vgrml.vm.provision "rstudio",
@@ -332,14 +338,19 @@ EOF
       args: [ vm_username, vm_password ],
       inline: <<-SHELL
         echo "Downloading & installing RStudio Server"
+        apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.1.463-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/$PKG
+        PKG=rstudio-server-1.4.1106-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/bionic/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
-        # Define the directory for the user library
+        # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
-        grep -q r-libs-user $CNF || echo "r-libs-user=~/.Rlibrary" >> $CNF
+        grep -q r-libs-user $CNF || cat >>$CNF <<EOF
+r-libs-user=~/.Rlibrary
+session-default-working-dir=/home/$1/R
+session-default-new-project-dir=/home/$1/R
+EOF
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
@@ -352,7 +363,7 @@ EOF
 
     # .........................................
     # Install the necessary components for nbconvert to work.
-    # Do it only if explicitly requested (either by environment variable 
+    # Do it only if explicitly requested (either by environment variable
     # PROVISION_NBC when creating or by --provision-with nbc)
     if (provision_run_nbc)
       vgrml.vm.provision "nbc",
@@ -362,10 +373,11 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
+          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern
           # We modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
-          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+
       SHELL
 
       # .........................................
@@ -377,22 +389,18 @@ EOF
       inline: <<-SHELL
           # Define language
           LANGUAGE=spanish
-          CODE=es
           echo "** Adding support for $LANGUAGE to LaTeX"
-          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
           sudo apt-get install -y texlive-lang-spanish
-          LANGDAT=$(kpsewhich language.dat)
-          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
           echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's|(\\\\usepackage\\{fontspec})|${1}\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
     end
 
     # .........................................
     # Install additional packages for NLP
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_NLP when creating or by --provision-with nlp) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_NLP when creating or by --provision-with nlp)
     if (provision_run_nlp)
       vgrml.vm.provision "nlp",
       type: "shell",
@@ -407,31 +415,9 @@ EOF
     end
 
     # .........................................
-    # Install a couple of additional Jupyter kernels
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_KRN when creating or by --provision-with kernels) 
-    if (provision_run_krn)
-      vgrml.vm.provision "kernels",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        echo "Installing additional kernels"
-        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
-        su -l "$1" <<-EOF
-         echo "Installing AIML-BOT & SPARQL kernels"
-         jupyter aimlbotkernel install --user
-         jupyter sparqlkernel install --user --logdir /var/log/ipnb
-EOF
-
-      SHELL
-    end
-    
-    # .........................................
     # Install Maven
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_MVN when creating or by --provision-with mvn) 
+    # Do it only if explicitly requested (either by environment variable
+    # PROVISION_MVN when creating or by --provision-with mvn)
     if (provision_run_mvn)
       vgrml.vm.provision "mvn",
       type: "shell",
@@ -439,14 +425,14 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.5.4
+        VERSION=3.6.3
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
         FILE=$PKG-bin.tar.gz
         cd /tmp
         wget http://apache.rediris.es/maven/maven-3/$VERSION/binaries/$FILE
-        rm -rf /home/$1/bin/mvn $DEST 
+        rm -rf /home/$1/bin/mvn $DEST
         mkdir -p $DEST
         tar zxvf $FILE -C $DEST
         su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
@@ -463,18 +449,18 @@ EOF
       inline: <<-SHELL
         # Download & install Scala
         cd install
-        VERSION=2.11.12
+        VERSION=2.12.11
         PKG=scala-$VERSION.deb
         echo "Downloading & installing Scala $VERSION"
         wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
-        sudo dpkg -i $PKG && rm $PKG 
+        sudo dpkg -i $PKG && rm $PKG
         # Install sbt
         echo "Installing sbt"
         # Install sbt
         echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
         # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs" 
+        echo "Configuring scala-mode in Emacs"
         cat <<EOF >> /home/$1/.emacs
 
 ; Install MELPA package repository
@@ -491,45 +477,18 @@ EOF
       SHELL
     end
 
-    # .........................................
-    # Install some Deep Learning stuff
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_DL when creating or by --provision-with dl) 
-    if (provision_run_dl)
-      vgrml.vm.provision "dl",
-      type: "shell",
-      privileged: false,
-      keep_color: true,
-      inline: <<-SHELL
-         sudo apt-get install -y git
-         pip install --upgrade tensorflow
-         pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
-         pip install --upgrade keras quiver
-         pip install --upgrade torch torchvision
-         sudo apt-get remove -y git 
-       SHELL
-    end
-
-
     # *************************************************************************
 
     # .........................................
     # Start Jupyter Notebook
-    # Note: this one we run it every time the machine boots, since during 
-    # the VM boot sequence the startup script is executed before vagrant has 
-    # mounted the shared folder, and hence it fails. 
-    # Running it as a provisioning makes it run *after* vagrant mounts, so 
-    # this way it works.
-    # [An alternative would be to force mounting on startup, by adding the
-    # vboxsf mount point to /etc/fstab during provisioning]
-    vgrml.vm.provision "50.nbstart", 
-      type: "shell", 
-      run: "always",
+    # This is normally not needed (the service starts automatically upon boot)
+    vgrml.vm.provision "50.nbstart",
+      type: "shell",
+      run: "never",
       privileged: true,
-      keep_color: true,    
+      keep_color: true,
       inline: "systemctl start notebook"
 
   end # config.vm.define
-
 
 end

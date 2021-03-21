@@ -4,19 +4,19 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `ml-base64` VM (which already provides all 
-the needed software packages, on an Ubuntu 18.04). On top of that, it configures
+the needed software packages, on an Ubuntu 20.04). On top of that, it configures
 and launches a Jupyter Notebook process, exported as an HTTP service to a local
 port. It allows creating notebooks with two different kernels:
-  * Python 3.6 (plain Python, with additional libraries such as NumPy, SciPy,
+  * Python 3.8 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
   * R
 
 The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
-* Python 3.6.6
-* A virtualenv for Python 3.6.6 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
-* R 3.5.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). 
+* Python 3.8.5
+* A virtualenv for Python 3.8.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
+* R 4.0.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). 
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 
 
@@ -29,7 +29,7 @@ The contents of the VM are:
   Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
-  * [Vagrant](https://www.vagrantup.com/) 1.8 or above
+  * [Vagrant](https://www.vagrantup.com/) 2.0 or above
 
 ### Process
 
@@ -85,7 +85,7 @@ the host and the VM:
    subdirectory. A few example mini-notebooks are already provided there.
 
 The Jupyter notebook server starts automatically. It can be managed
-(start/stop/restart) in a VM console session (see below) via:
+(start/stop/restart) in a VM console session (to create it see below) via:
 
     sudo systemctl (start | stop | restart) notebook
 
@@ -118,7 +118,8 @@ In the two first cases the user logged in the console session will be `vmuser`
 last case it will be `vagrant`. 
 * The `vmuser` user is intended to execute processing tasks (and is the one 
   running the Jupyter Notebook server), as well as Python commands (use either
-  `ipython` or `python`, which points to the virtualenv where all is installed).
+  `ipython` or `python`, which points to the virtualenv where everything is 
+  installed).
 * The `vagrant` user is intended for administrative tasks (and is the owner of
   all the installed Python stack).
 
@@ -154,13 +155,13 @@ It includes the following list:
 
 | name | package contents |
 | ---- | ---------------- |
+| dl | Deep Learning libraries (Tensorflow/Keras, PyTorch) |
 | rstudio | RStudio Server. See below for details |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
 | nlp | Some additional Python packages for Natural Language Processing |
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT |
-| dl | Deep Learning libraries (Keras, Theano, Tensorflow) |
 
 
 Note: for RStudio it will be also necessary to open port 8787 in the
