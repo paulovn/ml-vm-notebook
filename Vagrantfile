@@ -10,7 +10,6 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
-#vm_memory = '8192'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
@@ -37,7 +36,7 @@ port_nb = 8008
 # root user, "service notebook set-mode <mode>"
 spark_mode = 'local'
 
-# -----------------
+# -------------------
 # These 3 options are used only when running non-local tasks. They define
 # the access points for the remote cluster.
 # They can also be modified at runtime by executing inside the virtual
@@ -48,11 +47,11 @@ spark_mode = 'local'
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn
 # mode, or the Spark master in standalone mode)
-spark_master = 'samson02.hi.inet'
+spark_master = 'localhost'
 # [B] The host running the HDFS namenode
-spark_namenode = 'samson01.hi.inet'
-# [C] The location of the Spark History Server
-spark_history_server = 'samson03.hi.inet:18080'
+spark_namenode = 'localhost'
+# [C] The location (host:port) of the Spark History Server
+spark_history_server = 'localhost:18080'
 # ------------------
 
 
@@ -65,34 +64,10 @@ spark_basedir = '/opt/spark'
 
 
 # --------------------------------------------------------------------------
-# Some variables that affect Vagrant execution
+# Vagrant configuration
 
 # Check the command requested -- if ssh we'll change the login user
 vagrant_command = ARGV[0]
-
-# Conditionally activate some provision sections
-provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('rstudio'))
-provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && \
-           (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
-provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('nlp'))
-provision_run_krn  = ENV['PROVISION_KERNELS'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('kernels'))
-provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('mvn'))
-provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('scala'))
-provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('dl'))
-provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('graphframes'))
-
-#provision_run_rs = true
-
-# --------------------------------------------------------------------------
-# Vagrant configuration
 
 port_nb_internal = 8008
 
@@ -122,10 +97,10 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 3.0.0"
+    vgrml.vm.box_version = "= 3.1.2"
 
     # Alternative place: a local box
-    vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -133,6 +108,7 @@ Vagrant.configure(2) do |config|
     # vgrml.vm.box_check_update = false
 
     # Deactivate the usual synced folder and use instead a local subdirectory
+    # Tweak group permissions to allow writing by users other than "vagrant"
     vgrml.vm.synced_folder ".", "/vagrant", disabled: true
     vgrml.vm.synced_folder "vmfiles", "/vagrant",
       mount_options: ["dmode=775","fmode=664"],
@@ -140,11 +116,11 @@ Vagrant.configure(2) do |config|
     #owner: vm_username
     #auto_mount: false
 
-    # Customize the virtual machine: set hostname & allocated RAM
-    vgrml.vm.hostname = "vgr-ipnb-spark"
+    # Customize the virtual machine: set hostname & resources (RAM, CPUs)
+    vgrml.vm.hostname = "localhost"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
-      vb.name = vgrml.vm.hostname.to_s
+      vb.name = "vgr-ipnb-spark"
       # Customize the amount of memory on the VM
       vb.memory = vm_memory
       # Set the number of CPUs
@@ -174,6 +150,7 @@ Vagrant.configure(2) do |config|
      #auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
+
     # Spark driver UI
     vgrml.vm.network :forwarded_port, host: 4040, guest: 4040,
      auto_correct: true
@@ -181,16 +158,34 @@ Vagrant.configure(2) do |config|
     vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
      auto_correct: true
 
+    # Hadoop HDFS namenode, webui
+    vgrml.vm.network :forwarded_port, host: 9870, guest: 9870,
+     auto_correct: true
+    # Hadoop HDFS datanodes
+    vgrml.vm.network :forwarded_port, host: 50011, guest: 50011,
+     auto_correct: true
+    vgrml.vm.network :forwarded_port, host: 50012, guest: 50012,
+     auto_correct: true
+    # Hadoop HDFS datanodes, webui
+    vgrml.vm.network :forwarded_port, host: 50081, guest: 50081,
+     auto_correct: true
+    vgrml.vm.network :forwarded_port, host: 50082, guest: 50082,
+     auto_correct: true
+    # Hadoop Yarn resource manager, webui
+    vgrml.vm.network :forwarded_port, host: 8088, guest: 8088,
+     auto_correct: true
+    # Hadoop Yarn resource manager, history daemon
+    vgrml.vm.network :forwarded_port, host: 19888, guest: 19888,
+     auto_correct: true
+
+    # Kibana port
+    vgrml.vm.network :forwarded_port, host: 5601, guest: 5601,
+     auto_correct: true
+
     # RStudio server
     # =====> if using RStudio, uncomment the following line and reload the VM
     #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
-    # In case we want to fix Spark ports
-    #vgrml.vm.network :forwarded_port, host: 9234, guest: 9234
-    #vgrml.vm.network :forwarded_port, host: 9235, guest: 9235
-    #vgrml.vm.network :forwarded_port, host: 9236, guest: 9236
-    #vgrml.vm.network :forwarded_port, host: 9237, guest: 9237
-    #vgrml.vm.network :forwarded_port, host: 9238, guest: 9238
 
     # ---- bridged interface ----
     # Declare a public network
@@ -215,7 +210,8 @@ Vagrant.configure(2) do |config|
     vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
 
     # **********************************************************************
-    # Provisioning: install Spark configuration files and startup scripts
+    # Standard provisioning: Spark configuration files and startup scripts
+    # These are run by default upon VM installation
 
     # .........................................
     # Create the user to run Spark jobs (esp. notebook processes)
@@ -267,19 +263,6 @@ USEREOF
 
     SHELL
 
-    # Mount the shared folder with the new created user, so that it can write
-    # ---> don't, instead we add the user to the vagrant group and mount the
-    #      shared folder with group permissions
-#    vgrml.vm.provision "02.mount",
-#    type: "shell",
-#    privileged: true,
-#    keep_color: true,
-#    args: [ vm_username ],
-#    inline: <<-SHELL
-#umount /vagrant
-#mount -t vboxsf -o uid=$(id -u $1),gid=$(id -g $1) vagrant /vagrant
-#SHELL
-
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
     # and install all kernels: Pyspark, Scala, IRKernel, and extensions
@@ -309,6 +292,7 @@ EOF
 
      # --- Set the notebook service to start
      systemctl enable notebook
+
     SHELL
 
     vgrml.vm.provision "11.pyspark",
@@ -492,16 +476,246 @@ EOF
   SHELL
 
     # *************************************************************************
-    # Optional packages
+    # Optional provisioning
+    # These need to be run explicitly
+
+    # .........................................
+    # Install the necessary components for nbconvert to work.
+    vgrml.vm.provision "nbc",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+          echo "Installing nbconvert requirements"
+          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
+          # We modify the LaTeX template to generate A4 pages
+          # (comment this out to keep Letter-sized pages)
+          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+      SHELL
+
+    # .........................................
+    # Optional: modify nbconvert to process Spanish documents
+    vgrml.vm.provision "nbc.es",
+      type: "shell",
+      run: "never",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+          # Define language
+          LANGUAGE=spanish
+          CODE=es
+          echo "** Adding support for $LANGUAGE to LaTeX"
+          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
+          sudo apt-get install -y texlive-lang-spanish
+          LANGDAT=$(kpsewhich language.dat)
+          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
+          echo "** Converting base LaTeX template for $LANGUAGE"
+          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+      SHELL
+
+    # .........................................
+    # Modify Spark configuration to add or remove GraphFrames
+    vgrml.vm.provision "graphframes",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ spark_basedir ],
+      inline: <<-SHELL
+        cd $1/current/conf
+        NAME=spark-defaults.conf
+        if [ "$(readlink $NAME)" = "${NAME}.local" ]
+        then
+           echo "activating GraphFrames"
+           ln -sf ${NAME}.local.graphframes $NAME
+           ln -sf spark-env.sh.local.graphframes spark-env.sh
+        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
+        then
+           echo "deactivating GraphFrames"
+           ln -sf ${NAME}.local ${NAME}
+           ln -sf spark-env.sh.local spark-env.sh
+        else
+           echo "No local configuration active"
+        fi
+      SHELL
+
+    vgrml.vm.provision "hadoop",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        BASE=/opt/hadoop
+        test -d $BASE || mkdir -p $BASE
+        cd $BASE
+        VERSION=3.2.2
+        echo "Downloading Hadoop $VERSION ..."
+        T=hadoop-$VERSION
+        rm -rf $T
+        wget --progress=dot:giga https://archive.apache.org/dist/hadoop/core/$T/$T.tar.gz
+        echo "Extracting Hadoop $VERSION ..."
+        tar zxvf $T.tar.gz $T/bin $T/etc $T/lib/native $T/libexec $T/sbin $T/share/hadoop --exclude jdiff --exclude sources
+        rm $T.tar.gz
+        PRF=/home/$1/.bash_profile
+        if ! grep -q $T $PRF; then
+          echo "export PATH=\\$PATH:$BASE/$T/bin" >> $PRF
+        fi
+        echo "Customizing Hadoop $VERSION ..."
+        cat <<-EOF > /etc/hadoop/hadoop-env.sh
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export HADOOP_CONF_DIR=/etc/hadoop
+HADOOP_LOG_DIR=/var/log/hadoop
+EOF
+        # Download a custom VM configuration
+        cd /; wget -O - https://tiny.cc/vm-hadoop-conf | tar zxv
+        # Install it into the downloaded hadoop
+        cd $BASE/$T; mv etc/hadoop etc/hadoop.orig; ln -s /etc/hadoop etc
+        # Prepare folders
+        for d in /var/log/hadoop /data/hdfs /data/yarn
+        do
+           mkdir -p $d; chown $1.$1 $d
+        done
+        # Ensure vmuser can do ssh to localhost
+        D=/home/$1/.ssh
+        if test ! -f $D/id_rsa.pub; then
+          su -l "$1" <<USEREOF
+ssh-keygen  -f $D/id_rsa -N ""
+cat $D/id_rsa.pub >> $D/authorized_keys
+USEREOF
+        fi
+
+      SHELL
+
+    vgrml.vm.provision "elk",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        /bin/echo -e "\n..... Installing ELK stack"
+        wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+        test -f /etc/apt/sources.list.d/elastic-7.x.list || \
+	     echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" \
+	    | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+
+        apt-get update
+        apt-get install -y elasticsearch
+        apt-get install -y kibana logstash
+        mkdir -p /var/log/kibana && chown kibana.kibana /var/log/kibana
+        #mkdir -p "$ELDIR" && chown elasticsearch.elasticsearch ${ELDIR}
+
+        ${MAKECONF} --sep ': ' /etc/kibana/kibana.yml \
+		'logging.dest: "/var/log/kibana/kibana.log"' \
+		'console.enabled: false'
+
+        ${MAKECONF} --sep ': ' /etc/elasticsearch/elasticsearch.yml \
+		'indices.fielddata.cache.size: 20%' \
+		'cluster.name: vm-example' \
+		'bootstrap.memory_lock: true' \
+		"path.data: $ELDIR"
+
+        ${MAKECONF} --sep = /etc/default/elasticsearch \
+		"ES_HEAP_SIZE=$ES_HEAP"
+
+        ${MAKECONF}  --raw /etc/elasticsearch/jvm.options \
+		 "-Xms1g -Xms${ES_HEAP:-1g}" \
+		 "-Xmx1g -Xmx${ES_HEAP:-1g}"
+        ${MAKECONF}  --raw /etc/logstash/jvm.options \
+		 "-Xms1g -Xms${LS_HEAP:-1g}" \
+		 "-Xmx1g -Xmx${LS_HEAP:-1g}"
+
+       # This is applicable if the process is running inside a VM and the data
+       # folder is a mounted folder
+       id -u vagrant >/dev/null 2>&1 && usermod logstash -G vagrant -a
+
+       su -l "vagrant" -c "pip install elasticsearch elasticsearch-dsl"
+      SHELL
+
+    vgrml.vm.provision "kafka",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        KAFKA_VERSION=2.8.0
+        KAFKA_BASE=/opt/kafka
+        KAFKA_ADDR=localhost:9092
+        ZK_PORT=2181
+        /bin/echo -e "\n..... Installing Kafka $KAFKA_VERSION"
+        TARFILE=kafka_2.12-$KAFKA_VERSION.tgz
+        mkdir -p $KAFKA_BASE; cd $KAFKA_BASE
+        rm -rf $TARFILE kafka_2.12-$KAFKA_VERSION current
+        wget --progress=dot:giga http://apache.uvigo.es/kafka/$KAFKA_VERSION/$TARFILE
+        tar zxvf $TARFILE
+        ln -s kafka_2.12-$KAFKA_VERSION/ current
+        rm -f $TARFILE
+        /bin/echo -e "\n..... Configuring Kafka"
+        cd current
+        mkdir -p -m 777 var/data var/logs var/run
+        KAFKADIR=${KAFKA_BASE}/current
+        DATADIR=${KAFKADIR}/var/data
+        C=config/server.properties
+        test -f $C.orig || cp -p $C $C.orig
+        sed -i \
+            -e "s@\#advertised.listeners=.*@advertised.listeners=PLAINTEXT://$KAFKA_ADDR@"\
+            -e "s@\#advertised.listeners=.*@advertised.listeners=PLAINTEXT://$KAFKA_ADDR@"\
+            -e "s@zookeeper.connect=.*@zookeeper.connect=localhost:$ZK_PORT@" \
+            -e "s@log.dirs=/tmp/kafka-logs@log.dirs=$DATADIR/kafka@
+                \$ a 
+                \$ a auto.create.topics.enable=true" $C
+        echo "..... Configuring Zookeeper"
+        Z=config/zookeeper.properties
+        test -f $Z.orig || cp -p $Z $Z.orig
+        sed -i \
+            -e "s@dataDir=/tmp/zookeeper@dataDir=$DATADIR/zookeeper@" \
+            -e "s@clientPort=.*@clientPort=$ZK_PORT@" $Z
+        echo "..... Download management script"
+        cd bin
+        wget --progress=dot:giga http://tiny.cc/kafka-services
+        chmod +x kafka-services
+      SHELL
+
+    vgrml.vm.provision "nosql",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username, spark_basedir ],
+      inline: <<-SHELL
+        /bin/echo -e "\n..... Installing NOSQL stack"
+        wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+        add-apt-repository ppa:redislabs/redis
+        apt-get update
+        apt-get install -y mongodb-org redis
+        chmod go+rx /etc/redis
+        chmod 644 /etc/redis/redis.conf
+        systemctl restart redis mongod
+        su -l "vagrant" -c "pip install pymongo redis"
+        SPARK_CFG="$2/current/conf/spark-defaults.conf"
+        grep -q "# NoSQL" $SPARK_CFG || cat <<EOF >>$SPARK_CFG
+
+# -------------------------------------------------------------------------
+# NoSQL sources
+
+# MongoDB
+##spark.jars.packages=org.mongodb.spark:mongo-spark-connector_2.12:3.0.1
+# Redis
+##spark.jars.packages=com.redislabs:spark-redis_2.12:2.6.0
+EOF
+      SHELL
 
     # .........................................
     # Install RStudio server
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_RSTUDIO when creating or by --provision-with rstudio)
     # *** Don't forget to also uncomment forwarding for port 8787!
-    if (provision_run_rs)
-      vgrml.vm.provision "rstudio",
+    vgrml.vm.provision "rstudio",
       type: "shell",
+      run: "never",
       keep_color: true,
       privileged: true,
       args: [ vm_username, vm_password ],
@@ -528,54 +742,12 @@ EOF
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
       SHELL
-    end
-
-    # .........................................
-    # Install the necessary components for nbconvert to work.
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_NBC when creating or by --provision-with nbc)
-    if (provision_run_nbc)
-      vgrml.vm.provision "nbc",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-          echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
-          # We modify the LaTeX template to generate A4 pages
-          # (comment this out to keep Letter-sized pages)
-          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
-      SHELL
-
-      # .........................................
-      # Optional: modify nbconvert to process Spanish documents
-      vgrml.vm.provision "nbc.es",
-      type: "shell",
-      privileged: false,
-      keep_color: true,
-      inline: <<-SHELL
-          # Define language
-          LANGUAGE=spanish
-          CODE=es
-          echo "** Adding support for $LANGUAGE to LaTeX"
-          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
-          sudo apt-get install -y texlive-lang-spanish
-          LANGDAT=$(kpsewhich language.dat)
-          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
-          echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
-      SHELL
-
-    end
 
     # .........................................
     # Install additional packages for NLP
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_NLP when creating or by --provision-with nlp)
-    if (provision_run_nlp)
-      vgrml.vm.provision "nlp",
+    vgrml.vm.provision "nlp",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -584,37 +756,12 @@ EOF
         # pattern is Python 2 only
         su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
       SHELL
-    end
 
-    # .........................................
-    # Install a couple of additional Jupyter kernels
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_KRN when creating or by --provision-with kernels)
-    if (provision_run_krn)
-      vgrml.vm.provision "kernels",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        echo "Installing additional kernels"
-        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
-        su -l "$1" <<-EOF
-         echo "Installing AIML-BOT & SPARQL kernels"
-         jupyter aimlbotkernel install --user
-         jupyter sparqlkernel install --user --logdir /var/log/ipnb
-EOF
-
-      SHELL
-    end
- 
     # .........................................
     # Install Maven
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_MVN when creating or by --provision-with mvn)
-    if (provision_run_mvn)
-      vgrml.vm.provision "mvn",
+    vgrml.vm.provision "mvn",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -631,12 +778,11 @@ EOF
         tar zxvf $FILE -C $DEST
         su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
       SHELL
-    end
 
     # Install Scala development tools
-    if (provision_run_scala)
-      vgrml.vm.provision "scala",
+    vgrml.vm.provision "scala",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -669,45 +815,13 @@ EOF
 EOF
          chown $1.$1 /home/$1/.emacs
       SHELL
-    end
 
 
     # .........................................
-    # Modify Spark configuration to add or remove GraphFrames
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_GF when creating or by --provision-with graphframes)
-    if (provision_run_gf)
-      vgrml.vm.provision "graphframes",
+    # Install some Deep Learning frameworks
+    vgrml.vm.provision "dl",
       type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ spark_basedir ],
-      inline: <<-SHELL
-        cd $1/current/conf
-        NAME=spark-defaults.conf
-        if [ "$(readlink $NAME)" = "${NAME}.local" ]
-        then
-           echo "activating GraphFrames"
-           ln -sf ${NAME}.local.graphframes $NAME
-           ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
-        then
-           echo "deactivating GraphFrames"
-           ln -sf ${NAME}.local ${NAME}
-           ln -sf spark-env.sh.local spark-env.sh
-        else
-           echo "No local configuration active"
-        fi
-      SHELL
-    end
-
-    # .........................................
-    # Install some Deep Learning stuff
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_DL when creating or by --provision-with dl)
-    if (provision_run_dl)
-      vgrml.vm.provision "dl",
-      type: "shell",
+      run: "never",
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
@@ -715,8 +829,7 @@ EOF
          pip install --upgrade pip
          pip install --upgrade tensorflow-cpu
          pip install --upgrade torch torchvision
-       SHELL
-    end
+      SHELL
 
 
     # *************************************************************************
