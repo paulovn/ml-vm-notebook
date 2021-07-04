@@ -88,6 +88,10 @@ provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('dl'))
 provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
         (vagrant_command == 'provision' && ARGV.include?('graphframes'))
+provision_run_hdp = ENV['PROVISION_HADOOP'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('hadoop'))
+provision_run_elk = ENV['PROVISION_ELK'] == '1' || \
+        (vagrant_command == 'provision' && ARGV.include?('elk'))
 
 #provision_run_rs = true
 
@@ -174,6 +178,7 @@ Vagrant.configure(2) do |config|
      #auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
+
     # Spark driver UI
     vgrml.vm.network :forwarded_port, host: 4040, guest: 4040,
      auto_correct: true
@@ -181,16 +186,34 @@ Vagrant.configure(2) do |config|
     vgrml.vm.network :forwarded_port, host: 4041, guest: 4041,
      auto_correct: true
 
+    # Hadoop HDFS namenode, webui
+    vgrml.vm.network :forwarded_port, host: 9870, guest: 9870,
+     auto_correct: true
+    # Hadoop HDFS datanodes
+    vgrml.vm.network :forwarded_port, host: 50011, guest: 50011,
+     auto_correct: true
+    vgrml.vm.network :forwarded_port, host: 50012, guest: 50012,
+     auto_correct: true
+    # Hadoop HDFS datanodes, webui
+    vgrml.vm.network :forwarded_port, host: 50081, guest: 50081,
+     auto_correct: true
+    vgrml.vm.network :forwarded_port, host: 50082, guest: 50082,
+     auto_correct: true
+    # Hadoop Yarn resource manager, webui
+    vgrml.vm.network :forwarded_port, host: 8088, guest: 8088,
+     auto_correct: true
+    # Hadoop Yarn resource manager, history daemon
+    vgrml.vm.network :forwarded_port, host: 19888, guest: 19888,
+     auto_correct: true
+
+    # Kibana port
+    vgrml.vm.network :forwarded_port, host: 5601, guest: 5601,
+     auto_correct: true
+
     # RStudio server
     # =====> if using RStudio, uncomment the following line and reload the VM
     #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
-    # In case we want to fix Spark ports
-    #vgrml.vm.network :forwarded_port, host: 9234, guest: 9234
-    #vgrml.vm.network :forwarded_port, host: 9235, guest: 9235
-    #vgrml.vm.network :forwarded_port, host: 9236, guest: 9236
-    #vgrml.vm.network :forwarded_port, host: 9237, guest: 9237
-    #vgrml.vm.network :forwarded_port, host: 9238, guest: 9238
 
     # ---- bridged interface ----
     # Declare a public network
@@ -605,6 +628,82 @@ EOF
          jupyter sparqlkernel install --user --logdir /var/log/ipnb
 EOF
 
+      SHELL
+    end
+
+    if (provision_run_hdp)
+      vgrml.vm.provision "hadoop",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        VERSION=3.2.2
+        mkdir -p /opt/hadoop
+        cd /opt/hadoop
+        echo "Downloading Hadoop $VERSION ..."
+        T=hadoop-$VERSION
+        wget --progress=dot:giga https://archive.apache.org/dist/hadoop/core/$T/$T.tar.gz
+        echo "Extracting Hadoop $VERSION ..."
+        tar zxvf $T.tar.gz $T/bin $T/etc $T/lib/native $T/libexec $T/sbin $T/share/hadoop
+        ###echo "export PATH=\$PATH:/opt/hadoop/$T/bin" >> $HOME/.bash_profile
+        echo "Customizing Hadoop $VERSION ..."
+        cat <<-EOF > /etc/hadoop/hadoop-env.sh
+JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+HADOOP_CONF_DIR=/etc/hadoop
+HADOOP_LOG_DIR=/var/log/hadoop
+EOF
+        # Download and install a custom VM configuration
+        cd /; wget -O - https://tiny.cc/vm-hadoop-conf | tar zxv
+        for d in /var/log/hadoop /data/hdfs /data/yarn
+        do
+           mkdir -p $d; chown $1.$1 $d
+        done
+      SHELL
+    end
+
+    if (provision_run_elk)
+      vgrml.vm.provision "elk",
+      type: "shell",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        /bin/echo -e "\n..... Installing ELK stack"
+        wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+        test -f /etc/apt/sources.list.d/elastic-7.x.list || \
+	     echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" \
+	    | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+
+        apt-get update
+        apt-get install -y elasticsearch
+        apt-get install -y kibana logstash
+        mkdir -p /var/log/kibana && chown kibana.kibana /var/log/kibana
+        #mkdir -p "$ELDIR" && chown elasticsearch.elasticsearch ${ELDIR}
+
+        ${MAKECONF} --sep ': ' /etc/kibana/kibana.yml \
+		'logging.dest: "/var/log/kibana/kibana.log"' \
+		'console.enabled: false'
+
+        ${MAKECONF} --sep ': ' /etc/elasticsearch/elasticsearch.yml \
+		'indices.fielddata.cache.size: 20%' \
+		'cluster.name: vm-example' \
+		'bootstrap.memory_lock: true' \
+		"path.data: $ELDIR"
+
+        ${MAKECONF} --sep = /etc/default/elasticsearch \
+		"ES_HEAP_SIZE=$ES_HEAP"
+
+        ${MAKECONF}  --raw /etc/elasticsearch/jvm.options \
+		 "-Xms1g -Xms${ES_HEAP:-1g}" \
+		 "-Xmx1g -Xmx${ES_HEAP:-1g}"
+        ${MAKECONF}  --raw /etc/logstash/jvm.options \
+		 "-Xms1g -Xms${LS_HEAP:-1g}" \
+		 "-Xmx1g -Xmx${LS_HEAP:-1g}"
+
+       # This is applicable if the process is running inside a VM and the data
+       # folder is a mounted folder
+       id -u vagrant >/dev/null 2>&1 && usermod logstash -G vagrant -a
       SHELL
     end
  
