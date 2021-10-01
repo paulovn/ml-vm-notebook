@@ -182,6 +182,10 @@ Vagrant.configure(2) do |config|
     vgrml.vm.network :forwarded_port, host: 5601, guest: 5601,
      auto_correct: true
 
+    # kafdrop port
+    vgrml.vm.network :forwarded_port, host: 9000, guest: 9000,
+     auto_correct: true
+
     # RStudio server
     # =====> if using RStudio, uncomment the following line and reload the VM
     #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
@@ -597,10 +601,11 @@ USEREOF
       args: [ vm_username ],
       inline: <<-SHELL
         /bin/echo -e "\n..... Installing ELK stack"
-        wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+        SRV=artifacts.elastic.co
+        wget -qO - https://$SRV/GPG-KEY-elasticsearch | apt-key add -
         test -f /etc/apt/sources.list.d/elastic-7.x.list || \
-	     echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" \
-	    | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+	      echo "deb https://$SRV/packages/7.x/apt stable main" | \
+	      sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
 
         apt-get update
         apt-get install -y elasticsearch
@@ -608,25 +613,27 @@ USEREOF
         mkdir -p /var/log/kibana && chown kibana.kibana /var/log/kibana
         #mkdir -p "$ELDIR" && chown elasticsearch.elasticsearch ${ELDIR}
 
+        wget http://tiny.cc/cfgfilemgr -O /opt/ipnb/bin/app-config-manager.py
+        MAKECONF='/opt/ipnb/bin/python /opt/ipnb/bin/app-config-manager.py --rewrite'
+
         ${MAKECONF} --sep ': ' /etc/kibana/kibana.yml \
 		'logging.dest: "/var/log/kibana/kibana.log"' \
-		'console.enabled: false'
+		'console.enabled: false' \
+                'server.host: 0.0.0.0'
 
         ${MAKECONF} --sep ': ' /etc/elasticsearch/elasticsearch.yml \
 		'indices.fielddata.cache.size: 20%' \
 		'cluster.name: vm-example' \
 		'bootstrap.memory_lock: true' \
-		"path.data: $ELDIR"
+                'xpack.security.enabled: false'
 
         ${MAKECONF} --sep = /etc/default/elasticsearch \
-		"ES_HEAP_SIZE=$ES_HEAP"
+		"ES_HEAP_SIZE=${ES_HEAP:-512m}"
 
-        ${MAKECONF}  --raw /etc/elasticsearch/jvm.options \
-		 "-Xms1g -Xms${ES_HEAP:-1g}" \
-		 "-Xmx1g -Xmx${ES_HEAP:-1g}"
-        ${MAKECONF}  --raw /etc/logstash/jvm.options \
-		 "-Xms1g -Xms${LS_HEAP:-1g}" \
-		 "-Xmx1g -Xmx${LS_HEAP:-1g}"
+        cat <<EOF >/etc/elasticsearch/jvm.options.d/heap.options
+-Xms${ES_HEAP:-256m}
+-Xmx${ES_HEAP:-512m}
+EOF
 
        # This is applicable if the process is running inside a VM and the data
        # folder is a mounted folder
@@ -642,15 +649,15 @@ USEREOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        KAFKA_VERSION=2.8.0
+        KAFKA_VERSION=2.8.1
         KAFKA_BASE=/opt/kafka
         KAFKA_ADDR=localhost:9092
         ZK_PORT=2181
         /bin/echo -e "\n..... Installing Kafka $KAFKA_VERSION"
         TARFILE=kafka_2.12-$KAFKA_VERSION.tgz
         mkdir -p $KAFKA_BASE; cd $KAFKA_BASE
-        rm -rf $TARFILE kafka_2.12-$KAFKA_VERSION current
-        wget --progress=dot:giga http://apache.uvigo.es/kafka/$KAFKA_VERSION/$TARFILE
+        rm -rf $TARFILE kafka_2.12-$KAFKA_VERSION current kafka-services
+        wget --progress=dot:giga https://archive.apache.org/dist/kafka/$KAFKA_VERSION/$TARFILE || exit 1
         tar zxvf $TARFILE
         ln -s kafka_2.12-$KAFKA_VERSION/ current
         rm -f $TARFILE
@@ -674,17 +681,28 @@ USEREOF
         sed -i \
             -e "s@dataDir=/tmp/zookeeper@dataDir=$DATADIR/zookeeper@" \
             -e "s@clientPort=.*@clientPort=$ZK_PORT@" $Z
-        echo "..... Download management script"
+        echo "..... Download management scripts"
         cd bin
-        wget --progress=dot:giga http://tiny.cc/kafka-services
-        chmod +x kafka-services
+        wget --progress=dot:giga -O - https://tiny.cc/kafka-services | tar zxv
+      SHELL
+
+    vgrml.vm.provision "kafdrop",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        DIR=/opt/kafka
+        cd $DIR || exit 1
+        wget --progress=dot:giga -O - https://tiny.cc/kafdrop | tar zxv
+        echo "Kafdrop installed. Use $DIR/kafdrop/bin/kafdrop (start|stop)"
       SHELL
 
     vgrml.vm.provision "nosql",
       type: "shell",
       run: "never",
       privileged: true,
-      keep_color: true,
       args: [ vm_username, spark_basedir ],
       inline: <<-SHELL
         /bin/echo -e "\n..... Installing NOSQL stack"
@@ -695,7 +713,6 @@ USEREOF
         apt-get install -y mongodb-org redis
         chmod go+rx /etc/redis
         chmod 644 /etc/redis/redis.conf
-        systemctl restart redis mongod
         su -l "vagrant" -c "pip install pymongo redis"
         SPARK_CFG="$2/current/conf/spark-defaults.conf"
         grep -q "# NoSQL" $SPARK_CFG || cat <<EOF >>$SPARK_CFG
