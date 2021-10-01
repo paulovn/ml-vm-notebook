@@ -212,9 +212,11 @@ It includes the following list:
 
 | name | package contents |
 | ---- | ---------------- |
+| graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 | hadoop | Hadoop |
 | nosql | MongoDB & Redis |
-| kafka | Kafka server |
+| kafka | Kafka & ZooKeeper servers |
+| kafdrop | Kafdrop monitoring UI for Kafka |
 | elk | Elastic Search & Kibana |
 | rstudio | RStudio Server (see note below) |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
@@ -223,7 +225,6 @@ It includes the following list:
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
 | dl | Deep Learning libraries (Tensorflow, PyTorch) |
-| graphframes | Activate/deactivate the GraphFrames Spark package (already installed inside the VM) |
 
 
 Note: for RStudio it is also necessary that Vagrant opens port 8787 (this is
