@@ -10,6 +10,7 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
+#vm_memory = '8192'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
@@ -36,7 +37,7 @@ port_nb = 8008
 # root user, "service notebook set-mode <mode>"
 spark_mode = 'local'
 
-# -----------------
+# -------------------
 # These 3 options are used only when running non-local tasks. They define
 # the access points for the remote cluster.
 # They can also be modified at runtime by executing inside the virtual
@@ -47,11 +48,11 @@ spark_mode = 'local'
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn
 # mode, or the Spark master in standalone mode)
-spark_master = 'samson02.hi.inet'
+spark_master = 'localhost'
 # [B] The host running the HDFS namenode
-spark_namenode = 'samson01.hi.inet'
-# [C] The location of the Spark History Server
-spark_history_server = 'samson03.hi.inet:18080'
+spark_namenode = 'localhost'
+# [C] The location (host:port) of the Spark History Server
+spark_history_server = 'localhost:18080'
 # ------------------
 
 
@@ -64,34 +65,10 @@ spark_basedir = '/opt/spark'
 
 
 # --------------------------------------------------------------------------
-# Some variables that affect Vagrant execution
+# Vagrant configuration
 
 # Check the command requested -- if ssh we'll change the login user
 vagrant_command = ARGV[0]
-
-# Conditionally activate some provision sections
-provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('rstudio'))
-provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && \
-           (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
-provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('nlp'))
-provision_run_krn  = ENV['PROVISION_KERNELS'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('kernels'))
-provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('mvn'))
-provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('scala'))
-provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('dl'))
-provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('graphframes'))
-
-#provision_run_rs = true
-
-# --------------------------------------------------------------------------
-# Vagrant configuration
 
 port_nb_internal = 8008
 
@@ -104,7 +81,9 @@ Vagrant.configure(2) do |config|
 
   # vagrant-vbguest plugin: set auto_update to false, if you do NOT want to
   # check the correct additions version when booting this machine
-  #config.vbguest.auto_update = false
+  if Vagrant.has_plugin?("vagrant-vbguest") == true
+    config.vbguest.auto_update = false
+  end
 
   # Use our custom username, instead of the default "vagrant"
   if vagrant_command == "ssh"
@@ -119,7 +98,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 2.2.2"
+    vgrml.vm.box_version = "= 3.1.2"
 
     # Alternative place: a local box
     #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
@@ -130,15 +109,15 @@ Vagrant.configure(2) do |config|
     # vgrml.vm.box_check_update = false
 
     # Deactivate the usual synced folder and use instead a local subdirectory
+    # Tweak group permissions to allow writing by users other than "vagrant"
     vgrml.vm.synced_folder ".", "/vagrant", disabled: true
     vgrml.vm.synced_folder "vmfiles", "/vagrant",
-      #mount_options: ["dmode=1775","fmode=664", "uid=1001", "gid=1001"],
       mount_options: ["dmode=775","fmode=664"],
       disabled: false
     #owner: vm_username
     #auto_mount: false
 
-    # Customize the virtual machine: set hostname & allocated RAM
+    # Customize the virtual machine: set hostname & resources (RAM, CPUs)
     vgrml.vm.hostname = "vgr-ipnb-spark"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
@@ -147,15 +126,20 @@ Vagrant.configure(2) do |config|
       vb.memory = vm_memory
       # Set the number of CPUs
       vb.cpus = vm_cpus
+      # Use the DNS proxy of the NAT engine (helps in some VPN environments)
+      #vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      # Control guest clock adjustment
+      vb.customize ["guestproperty", "set", :id,
+                    "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
+                    10000]
+      vb.customize ["guestproperty", "set", :id,
+                    "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
+                    1]
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
-      # Control guest clock adjustment
-      vb.customize [ "guestproperty", "set", :id,
-                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
-                     10000 ]
-      vb.customize [ "guestproperty", "set", :id,
-                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore",
-                     1 ]
+      # Adjust copy/paste between guest & host (for GUI startups)
+      vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+      vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
     end
 
     # **********************************************************************
@@ -167,6 +151,7 @@ Vagrant.configure(2) do |config|
      #auto_correct: true,
      guest: port_nb_internal,
      host: port_nb                  # Notebook UI
+
     # Spark driver UI
     vgrml.vm.network :forwarded_port, host: 4040, guest: 4040,
      auto_correct: true
@@ -205,19 +190,23 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s
+    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
 
     # **********************************************************************
-    # Provisioning: install Spark configuration files and startup scripts
+    # Standard provisioning: Spark configuration files and startup scripts
+    # These are run by default upon VM installation
 
     # .........................................
     # Create the user to run Spark jobs (esp. notebook processes)
     vgrml.vm.provision "01.nbuser",
     type: "shell",
     privileged: true,
-    args: [ vm_username ],
+    args: [ vm_username, vm_password ],
     inline: <<-SHELL
-      id "$1" >/dev/null 2>&1 || useradd -c 'User for Spark Notebook' -m -G vagrant,sudo "$1" -s /bin/bash
+      # Create user
+      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo "$1" -s /bin/bash
+      # Set the password for the user
+      echo "$1:$2" | chpasswd
 
       # Create the .bash_profile file
       cat <<'ENDPROFILE' > /home/$1/.bash_profile
@@ -234,22 +223,10 @@ export PATH=$HOME/bin:$PATH:$HOME/.local/bin
 export PYSPARK_DRIVER_PYTHON=ipython
 # Place where to keep user R packages (used outside RStudio Server)
 export R_LIBS_USER=~/.Rlibrary
-# Load Theano initialization file
-export THEANORC=/etc/theanorc:~/.theanorc
 # Jupyter uses this to define datadir but it is undefined when using "runuser"
 test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
       chown $1.$1 /home/$1/.bash_profile
-
-      # Create a config.yml file for R
-      cat <<'ENDFILE' > /home/$1/R/config.yml
-# R configuration options
-default:
-  spark.master: "local"
-  sparklyr.sparkui.url: "http://localhost:4040"
-  rstudio.spark.connections: "local"
-ENDFILE
-      chown $1.$1 /home/$1/config.yml
 
       # Create some local files as the designated user
       su -l "$1" <<'USEREOF'
@@ -269,22 +246,9 @@ USEREOF
 
     SHELL
 
-    # Mount the shared folder with the new created user, so that it can write
-    # ---> don't, instead we add the user to the vagrant group and mount the
-    #      shared folder with group permissions
-#    vgrml.vm.provision "02.mount",
-#    type: "shell",
-#    privileged: true,
-#    keep_color: true,
-#    args: [ vm_username ],
-#    inline: <<-SHELL
-#umount /vagrant
-#mount -t vboxsf -o uid=$(id -u $1),gid=$(id -g $1) vagrant /vagrant
-#SHELL
-
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
-    # and install all kernels: Pyspark, SPylon (Scala), IRKernel, and extensions
+    # and install all kernels: Pyspark, Scala, IRKernel, and extensions
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
     vgrml.vm.provision "10.config",
     type: "shell",
@@ -300,25 +264,18 @@ USEREOF
      echo "Creating Jupyter config"
      cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 import os
-c = get_config()
-# define server
 c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.port = $3
-c.NotebookApp.password = u'$PASS'
+c.NotebookApp.password = '$PASS'
+c.NotebookApp.notebook_dir = os.environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
-c.NotebookApp.notebook_dir = os.environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
-# Preload matplotlib
-c.IPKernelApp.matplotlib = 'inline'
-# Kernel heartbeat interval in seconds.
-# This is in jupyter_client.restarter. Not sure if it gets picked up
-c.KernelRestarter.time_to_dead = 30.0
-c.KernelRestarter.debug = True
 EOF
      chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
 
-     # --------------------- Set the notebook service to start
+     # --- Set the notebook service to start
      systemctl enable notebook
+
     SHELL
 
     vgrml.vm.provision "11.pyspark",
@@ -360,39 +317,42 @@ EOF
     SHELL
 
 
-    vgrml.vm.provision "12.spylon",
+    vgrml.vm.provision "12.scala-kernel",
     type: "shell",
     privileged: true,
     keep_color: true,
     args: [ spark_basedir, vm_username ],
     inline: <<-SHELL
      SPARK_BASE=$1
-     KERNEL_NAME='spylon-kernel'
      USERNAME=$2
-     KDIR=/home/$USERNAME/.local/share/jupyter/kernels
-     KERNEL_DIR="${KDIR}/${KERNEL_NAME}"
-     KICONS=$SPARK_BASE/kernel-icons
-
-     # --------------------- Install the Scala Spark kernel (Spylon)
-     echo "Installing Spylon (Scala) kernel ..."
+     KERNEL_NAME='scala'
+     KDIR="/home/$USERNAME/.local/share/jupyter/kernels"
+     KERNEL_FILE="${KDIR}/${KERNEL_NAME}/kernel.json"
      su -l "$USERNAME" <<-EOF
-       PATH=/opt/ipnb/bin:$PATH python -m spylon_kernel install --user
+
+       # --------------------- Install a Scala kernel
+       echo "Installing a Scala kernel ..."
+       echo " .. downloading coursier"
+       curl -Lo coursier https://git.io/coursier-cli 2>k.log || cat k.log
+       chmod +x coursier
+       echo " .. installing almond kernel"
+       ./coursier launch --fork almond --scala 2.12.11 --main-class almond.ScalaKernel -- --install --force 2>k.log || cat k.log
+       rm -f coursier k.log
+       echo " .. configuring almond kernel"
        /opt/ipnb/bin/python <<PYTH
 import json
-import os.path
-name = os.path.join('$KERNEL_DIR','kernel.json')
-with open(name) as f:
+with open('${KERNEL_FILE}') as f:
    k = json.load(f)
-k['display_name'] = 'Scala 2.11 (SPylon)'
-k['env']['SPARK_HOME'] = '$SPARK_BASE/current'
-k['env']['SPARK_SUBMIT_OPTS'] += ' -Xms1024M -Xmx2048M -Dlog4j.logLevel=info'
-with open(name,'w') as f:
+k['display_name'] = 'Scala 2.12 (Almond)'
+if 'env' not in k:
+   k['env'] = {'SPARK_SUBMIT_OPTS': ''}
+k['env']['SPARK_HOME'] = "${SPARK_BASE}/current"
+k['env']['SPARK_CONF_DIR'] = "${SPARK_BASE}/current/conf"
+k['env']['SPARK_SUBMIT_OPTS'] += " -Xms1024M -Xmx2048M -Dlog4j.logLevel=info"
+with open('${KERNEL_FILE}','w') as f:
    json.dump(k, f, sort_keys=True)
 PYTH
 EOF
-     # Copy Scala kernel logos
-     cp -p $1/kernel-icons/scala-spark-icon-64x64.png "${KERNEL_DIR}/logo-64x64.png"
-     cp -p $1/kernel-icons/scala-spark-icon-32x32.png "${KERNEL_DIR}/logo-32x32.png"
     SHELL
 
     vgrml.vm.provision "13.ir",
@@ -499,16 +459,41 @@ EOF
   SHELL
 
     # *************************************************************************
-    # Optional packages
+    # Optional provisioning
+    # These need to be run explicitly
+
+    # .........................................
+    # Modify Spark configuration to add or remove GraphFrames
+    vgrml.vm.provision "graphframes",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ spark_basedir ],
+      inline: <<-SHELL
+        cd $1/current/conf
+        NAME=spark-defaults.conf
+        if [ "$(readlink $NAME)" = "${NAME}.local" ]
+        then
+           echo "activating GraphFrames"
+           ln -sf ${NAME}.local.graphframes $NAME
+           ln -sf spark-env.sh.local.graphframes spark-env.sh
+        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
+        then
+           echo "deactivating GraphFrames"
+           ln -sf ${NAME}.local ${NAME}
+           ln -sf spark-env.sh.local spark-env.sh
+        else
+           echo "No local configuration active"
+        fi
+      SHELL
 
     # .........................................
     # Install RStudio server
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_RSTUDIO when creating or by --provision-with rstudio)
     # *** Don't forget to also uncomment forwarding for port 8787!
-    if (provision_run_rs)
-      vgrml.vm.provision "rstudio",
+    vgrml.vm.provision "rstudio",
       type: "shell",
+      run: "never",
       keep_color: true,
       privileged: true,
       args: [ vm_username, vm_password ],
@@ -517,7 +502,7 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.3.959-amd64.deb
+        PKG=rstudio-server-1.4.1106-amd64.deb
         wget --no-verbose https://download2.rstudio.org/server/xenial/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
@@ -535,15 +520,12 @@ EOF
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
       SHELL
-    end
 
     # .........................................
     # Install the necessary components for nbconvert to work.
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_NBC when creating or by --provision-with nbc)
-    if (provision_run_nbc)
-      vgrml.vm.provision "nbc",
+    vgrml.vm.provision "nbc",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -555,10 +537,11 @@ EOF
           perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
 
-      # .........................................
-      # Optional: modify nbconvert to process Spanish documents
-      vgrml.vm.provision "nbc.es",
+    # .........................................
+    # Optional: modify nbconvert to process Spanish documents
+    vgrml.vm.provision "nbc.es",
       type: "shell",
+      run: "never",
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
@@ -574,15 +557,11 @@ EOF
           perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
       SHELL
 
-    end
-
     # .........................................
     # Install additional packages for NLP
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_NLP when creating or by --provision-with nlp)
-    if (provision_run_nlp)
-      vgrml.vm.provision "nlp",
+    vgrml.vm.provision "nlp",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -591,37 +570,12 @@ EOF
         # pattern is Python 2 only
         su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
       SHELL
-    end
-
-    # .........................................
-    # Install a couple of additional Jupyter kernels
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_KRN when creating or by --provision-with kernels)
-    if (provision_run_krn)
-      vgrml.vm.provision "kernels",
-      type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        echo "Installing additional kernels"
-        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
-        su -l "$1" <<-EOF
-         echo "Installing AIML-BOT & SPARQL kernels"
-         jupyter aimlbotkernel install --user
-         jupyter sparqlkernel install --user --logdir /var/log/ipnb
-EOF
-
-      SHELL
-    end
 
     # .........................................
     # Install Maven
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_MVN when creating or by --provision-with mvn)
-    if (provision_run_mvn)
-      vgrml.vm.provision "mvn",
+    vgrml.vm.provision "mvn",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -638,19 +592,18 @@ EOF
         tar zxvf $FILE -C $DEST
         su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
       SHELL
-    end
 
     # Install Scala development tools
-    if (provision_run_scala)
-      vgrml.vm.provision "scala",
+    vgrml.vm.provision "scala",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
         # Download & install Scala
         cd install
-        VERSION=2.11.12
+        VERSION=2.12.11
         PKG=scala-$VERSION.deb
         echo "Downloading & installing Scala $VERSION"
         wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
@@ -676,45 +629,13 @@ EOF
 EOF
          chown $1.$1 /home/$1/.emacs
       SHELL
-    end
 
 
     # .........................................
-    # Modify Spark configuration to add or remove GraphFrames
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_GF when creating or by --provision-with graphframes)
-    if (provision_run_gf)
-      vgrml.vm.provision "graphframes",
+    # Install some Deep Learning frameworks
+    vgrml.vm.provision "dl",
       type: "shell",
-      privileged: true,
-      keep_color: true,
-      args: [ spark_basedir ],
-      inline: <<-SHELL
-        cd $1/current/conf
-        NAME=spark-defaults.conf
-        if [ "$(readlink $NAME)" = "${NAME}.local" ]
-        then
-           echo "activating GraphFrames"
-           ln -sf ${NAME}.local.graphframes $NAME
-           ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
-        then
-           echo "deactivating GraphFrames"
-           ln -sf ${NAME}.local ${NAME}
-           ln -sf spark-env.sh.local spark-env.sh
-        else
-           echo "No local configuration active"
-        fi
-      SHELL
-    end
-
-    # .........................................
-    # Install some Deep Learning stuff
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_DL when creating or by --provision-with dl)
-    if (provision_run_dl)
-      vgrml.vm.provision "dl",
-      type: "shell",
+      run: "never",
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
@@ -722,9 +643,28 @@ EOF
          pip install --upgrade pip
          pip install --upgrade tensorflow-cpu
          pip install --upgrade torch torchvision
-       SHELL
-    end
+      SHELL
 
+
+    # .........................................
+    # Install a couple of additional Jupyter kernels
+    vgrml.vm.provision "kernels",
+      type: "shell",
+      run: "never",
+      privileged: true,
+      keep_color: true,
+      args: [ vm_username ],
+      inline: <<-SHELL
+        echo "Installing additional kernels"
+        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
+        su -l "$1" <<-EOF
+         echo "Installing AIML-BOT & SPARQL kernels"
+         jupyter aimlbotkernel install --user
+         jupyter sparqlkernel install --user --logdir /var/log/ipnb
+EOF
+
+      SHELL
+ 
 
     # *************************************************************************
 
@@ -739,6 +679,5 @@ EOF
       inline: "systemctl start notebook"
 
   end # config.vm.define
-
 
 end
