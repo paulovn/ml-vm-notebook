@@ -378,6 +378,20 @@ EOF
      #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
     SHELL
 
+    vgrml.vm.provision "14.gfversion",
+    type: "shell",
+    privileged: false,
+    keep_color: true,
+    args: [ spark_basedir ],
+    inline: <<-SHELL
+      cd $1/current/conf
+      for f in spark-defaults.conf spark-env.sh
+      do
+        sed -i -e 's/0\.8\.1-spark3\.0/0.8.2-spark3.1/' $f.local.graphframes
+      done
+    SHELL
+
+
     # .........................................
     # Create a configuration file for sparklyr/Rstudio
     vgrml.vm.provision "20.Rconfig",
