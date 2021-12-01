@@ -10,7 +10,6 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
-#vm_memory = '8192'
 # Number of CPU cores assigned to the VM
 vm_cpus = '2'
 
@@ -516,8 +515,8 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.4.1106-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/server/xenial/amd64/$PKG
+        PKG=rstudio-server-2021.09.1-372-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/bionic/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
