@@ -653,9 +653,11 @@ EOF
       keep_color: true,
       inline: <<-SHELL
          # Tensorflow 2 needs pip >= 19.0
-         pip install --upgrade pip
-         pip install --upgrade tensorflow-cpu
-         pip install --upgrade torch torchvision
+         pip install --upgrade "pip>19.0"
+         pip install --upgrade "tensorflow-cpu>=2.2"
+         pip install --upgrade torch==1.10.1+cpu \
+             torchvision==0.11.2+cpu torchaudio==0.10.1+cpu \
+             -f https://download.pytorch.org/whl/cpu/torch_stable.html
       SHELL
 
 
