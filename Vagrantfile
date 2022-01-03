@@ -10,7 +10,6 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
-#vm_memory = '8192'
 # Number of CPU cores assigned to the VM
 vm_cpus = '1'
 
@@ -137,6 +136,7 @@ Vagrant.configure(2) do |config|
                     1]
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
+
       # Adjust copy/paste between guest & host (for GUI startups)
       vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
       vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
@@ -243,7 +243,6 @@ USEREOF
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
-
     SHELL
 
     # .........................................
@@ -516,8 +515,8 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.4.1106-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/server/xenial/amd64/$PKG
+        PKG=rstudio-server-2021.09.1-372-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/bionic/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
@@ -654,9 +653,11 @@ EOF
       keep_color: true,
       inline: <<-SHELL
          # Tensorflow 2 needs pip >= 19.0
-         pip install --upgrade pip
-         pip install --upgrade tensorflow-cpu
-         pip install --upgrade torch torchvision
+         pip install --upgrade "pip>19.0"
+         pip install --upgrade "tensorflow-cpu>=2.2"
+         pip install --upgrade torch==1.10.1+cpu \
+             torchvision==0.11.2+cpu torchaudio==0.10.1+cpu \
+             -f https://download.pytorch.org/whl/cpu/torch_stable.html
       SHELL
 
 
