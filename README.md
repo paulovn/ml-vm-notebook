@@ -14,9 +14,9 @@ port. It allows creating notebooks with two different kernels:
 The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
-* Python 3.8.5
-* A virtualenv for Python 3.8.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
-* R 4.0.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). 
+* Python 3.8.10
+* A virtualenv for Python 3.8.10 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
+* R 4.1.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). 
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 
 

@@ -26,33 +26,10 @@ port_nb = 8008
 
 
 # --------------------------------------------------------------------------
-# Some variables that affect Vagrant execution
+# Vagrant configuration
 
 # Check the command requested -- if ssh we'll change the login user
 vagrant_command = ARGV[0]
-
-# Conditionally activate some provision sections
-provision_run_rs  = ENV['PROVISION_RSTUDIO'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('rstudio'))
-provision_run_nbc = (ENV['PROVISION_NBC'] == '1') || \
-        (vagrant_command == 'provision' && \
-           (ARGV.include?('nbc')||ARGV.include?('nbc.es')))
-provision_run_nlp  = ENV['PROVISION_NLP'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('nlp'))
-provision_run_krn  = ENV['PROVISION_KERNELS'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('kernels'))
-provision_run_mvn = ENV['PROVISION_MVN'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('mvn'))
-provision_run_scala = ENV['PROVISION_SCALA'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('scala'))
-provision_run_dl  = ENV['PROVISION_DL'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('dl'))
-provision_run_gf  = ENV['PROVISION_GRAPHFRAMES'] == '1' || \
-        (vagrant_command == 'provision' && ARGV.include?('graphframes'))
-
-
-# --------------------------------------------------------------------------
-# Vagrant configuration
 
 port_nb_internal = 8008
 
@@ -80,12 +57,12 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 3.0.0"
+    vgrml.vm.box_version = "= 3.1.0"
 
     # Alternative place: box elsewhere
-    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-300-box"
+    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-310-box"
     # Alternative place: local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/ml-base64-LOCAL.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/ml-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -93,6 +70,7 @@ Vagrant.configure(2) do |config|
     # vgrml.vm.box_check_update = false
 
     # Deactivate the usual synced folder and use instead a local subdirectory
+    # Tweak group permissions to allow writing by users other than "vagrant"
     vgrml.vm.synced_folder ".", "/vagrant", disabled: true
     vgrml.vm.synced_folder "vmfiles", "/vagrant",
       mount_options: ["dmode=775","fmode=664"],
@@ -141,7 +119,7 @@ Vagrant.configure(2) do |config|
 
     # ---- bridged interface ----
     # Declare a public network
-    # This enables the machine to be connected from outside
+
     # =====> Uncomment the following two lines to enable bridge mode:
     #vgrml.vm.network "public_network",
     #type: "dhcp"
@@ -161,7 +139,8 @@ Vagrant.configure(2) do |config|
 
 
     # **********************************************************************
-    # Provisioning: install configuration files and startup scripts
+    # Standard provisioning: install configuration files and startup scripts
+    # These are run by default upon VM installation
 
     # .........................................
     # Create the user to run jobs (esp. notebook processes)
@@ -208,7 +187,6 @@ USEREOF
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
       chown $1.$1 /home/$1/.ssh/authorized_keys
-
     SHELL
 
     # .........................................
@@ -222,7 +200,7 @@ USEREOF
     inline: <<-SHELL
      USERNAME=$1
      NOTEBOOK_BASEDIR=/home/$USERNAME/IPNB
-     PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
+     PASS=$(/opt/ipnb/bin/python -c "from notebook.auth.security import passwd; print(passwd('$2'))")
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
@@ -231,7 +209,7 @@ USEREOF
 from os import environ
 c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.port = $3
-c.NotebookApp.password = u'$PASS'
+c.NotebookApp.password = '$PASS'
 c.NotebookApp.notebook_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
@@ -254,7 +232,7 @@ EOF
        PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
 EOF
     SHELL
- 
+
     vgrml.vm.provision "30.extensions",
     type: "shell",
     privileged: true,
@@ -306,33 +284,16 @@ EOF
   SHELL
 
     # *************************************************************************
-    # Optional packages
-
-    # Install some Deep Learning stuff
-    # Do it only if explicitly requested (either by environment variable 
-    # PROVISION_DL when creating or by --provision-with dl) 
-    if (provision_run_dl)
-      vgrml.vm.provision "dl",
-      type: "shell",
-      privileged: false,
-      keep_color: true,
-      inline: <<-SHELL
-         # Tensorflow 2 needs pip >= 19.0
-         pip install --upgrade pip
-         pip install --upgrade tensorflow-cpu
-         pip install --upgrade torch torchvision
-       SHELL
-    end
+    # Optional provisioning
+    # These need to be run explicitly
 
 
     # .........................................
     # Install RStudio server
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_RSTUDIO when creating or by --provision-with rstudio)
     # *** Don't forget to also uncomment forwarding for port 8787!
-    if (provision_run_rs)
-      vgrml.vm.provision "rstudio",
+    vgrml.vm.provision "rstudio",
       type: "shell",
+      run: "never",
       keep_color: true,
       privileged: true,
       args: [ vm_username, vm_password ],
@@ -341,7 +302,7 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.4.1106-amd64.deb
+        PKG=rstudio-server-2021.09.1-372-amd64.deb
         wget --no-verbose https://download2.rstudio.org/server/bionic/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
@@ -359,15 +320,12 @@ EOF
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
       SHELL
-    end
 
     # .........................................
     # Install the necessary components for nbconvert to work.
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_NBC when creating or by --provision-with nbc)
-    if (provision_run_nbc)
-      vgrml.vm.provision "nbc",
+    vgrml.vm.provision "nbc",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -380,10 +338,11 @@ EOF
 
       SHELL
 
-      # .........................................
-      # Optional: modify nbconvert to process Spanish documents
-      vgrml.vm.provision "nbc.es",
+    # .........................................
+    # Optional: modify nbconvert to process Spanish documents
+    vgrml.vm.provision "nbc.es",
       type: "shell",
+      run: "never",
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
@@ -395,15 +354,11 @@ EOF
           perl -pi -e 's|(\\\\usepackage\\{fontspec})|${1}\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
-    end
-
     # .........................................
     # Install additional packages for NLP
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_NLP when creating or by --provision-with nlp)
-    if (provision_run_nlp)
-      vgrml.vm.provision "nlp",
+    vgrml.vm.provision "nlp",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -412,15 +367,12 @@ EOF
         # pattern is Python 2 only
         su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
       SHELL
-    end
 
     # .........................................
     # Install Maven
-    # Do it only if explicitly requested (either by environment variable
-    # PROVISION_MVN when creating or by --provision-with mvn)
-    if (provision_run_mvn)
-      vgrml.vm.provision "mvn",
+    vgrml.vm.provision "mvn",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -437,12 +389,11 @@ EOF
         tar zxvf $FILE -C $DEST
         su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
       SHELL
-    end
 
     # Install Scala development tools
-    if (provision_run_scala)
-      vgrml.vm.provision "scala",
+    vgrml.vm.provision "scala",
       type: "shell",
+      run: "never",
       privileged: true,
       keep_color: true,
       args: [ vm_username ],
@@ -475,7 +426,24 @@ EOF
 EOF
          chown $1.$1 /home/$1/.emacs
       SHELL
-    end
+
+
+    # .........................................
+    # Install some Deep Learning frameworks
+    vgrml.vm.provision "dl",
+      type: "shell",
+      run: "never",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+         # Tensorflow 2 needs pip >= 19.0
+         pip install --upgrade "pip>19.0"
+         pip install --upgrade "tensorflow-cpu>=2.2"
+         pip install --upgrade torch==1.10.1+cpu \
+             torchvision==0.11.2+cpu torchaudio==0.10.1+cpu \
+             -f https://download.pytorch.org/whl/cpu/torch_stable.html
+      SHELL
+
 
     # *************************************************************************
 
