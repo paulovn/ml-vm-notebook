@@ -4,12 +4,12 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `spark-base64` VM (which already provides all 
-the needed software packages, on an Ubuntu 20.04). On top of that, it configures
-and launches a Jupyter Notebook process, exported as an HTTP service to a local
-port. It allows creating notebooks with four different kernels:
-  * Python 3.8 (plain Python, with additional libraries such as NumPy, SciPy,
+the needed software packages, on an Ubuntu 22.04 box). On top of that, it
+configures and launches a Jupyter Notebook process, exported as an HTTP service
+to a local port. It allows creating notebooks with four different kernels:
+  * Python 3.10 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
-  * Pyspark (Python 3.8 + libraries + Spark),
+  * Pyspark (Python 3.10 + libraries + Spark),
   * Scala 2.12 (with the capability of connecting to Spark)
   * R (with SparkR available, though not loaded by default).
 
@@ -17,11 +17,11 @@ The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 3.1.2
-* Python 3.8
-* A virtualenv for Python 3.8 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
-* R 4.0 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
-* Spark notebook Kernels for Python 3.8, Scala ([Almond](https://almond.sh/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.8 kernel.
+* [Apache Spark](http://spark.apache.org/) 3.3.2
+* Python 3.10
+* A virtualenv for Python 3.10 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
+* R 4.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* Spark notebook Kernels for Python 3.10, Scala ([Almond](https://almond.sh/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.10 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
 * A notebook startup daemon script with facilities to configure Spark execution mode
 * RStudio Server (optional provisioning)
@@ -41,9 +41,10 @@ saving it will make it work in future executions.
 
 * Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), 
   and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
-  Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
+  Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X. Note: **the VM will
+  not work with M1 & M2 Mac computers, it needs an Intel-based computer**
 * Software: The following must be installed in the computer:
-  * [Virtualbox](https://www.virtualbox.org/) 5.0 or above (if possible, use the latest version available)
+  * [Virtualbox](https://www.virtualbox.org/) 6.0 or above (if possible, use the latest version available)
   * [Vagrant](https://www.vagrantup.com/) 2.0 or above (if possible, use the latest version available)
 
 
@@ -86,9 +87,9 @@ problem as long as there is a working Internet connection.
 ## Operation
 
 Once installation finishes, a notebook server will be running on
-[`http://localhost:8008`](http://localhost:8008). Use a Web browser to access
-it. By default it is also accessible externally, i.e. other machines in the
-network can also connect to it (unless the host computer has a firewall that
+[`http://localhost:8008`](http://localhost:8008). Use a Web browser to
+access it. By default it is also accessible externally, i.e. other machines in
+the network can also connect to it (unless the host computer has a firewall that
 blocks port 8008).
 
 Using the notebook interface will require the access password defined in
@@ -100,8 +101,9 @@ the host and the VM:
    the VM as the `/vagrant` directory, so anything in that subfolder can be 
    accessed within the VM.
  * Furthermore, the notebook server is configured to browse the files in the
-   `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
-   subdirectory. A few example mini-notebooks are already provided there.
+   `vmfiles/IPNB` subdirectory (it appears under the notebook interface as the
+   `host` folder), so to add notebooks place them in that subdirectory. A few
+   example mini-notebooks are already provided there.
  * Finally, the `vmfiles/hive` subdirectory is the place configured in
    Spark SQL for its metastore & tables (so it should survive to changes in
    the VM).
@@ -161,8 +163,8 @@ folder.
 
 Inside the VM (i.e. as seen from within a console session), Spark is installed
 in `/opt/spark/current/`. The two important Spark config files are:
-* `/opt/spark/current/conf/spark-env.sh`: environment variables used by the
-  Spark deployment inside the VM
+* `/opt/spark/current/conf/spark-env.sh`: environment variables used by
+  the Spark deployment inside the VM
 * `/opt/spark/current/conf/spark-defaults.conf`: configuration properties
   used by Spark
 
@@ -215,7 +217,7 @@ It includes the following list:
 
 | name | package contents |
 | ---- | ---------------- |
-| graphframes | Activate/deactivate the GraphFrames Spark package |
+| graphframes | Activate/deactivate GraphFrames in Spark config |
 | rstudio | RStudio Server (see note below) |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
