@@ -50,14 +50,17 @@ Vagrant.configure(2) do |config|
   if vagrant_command == "ssh"
       config.ssh.username = vm_username
   end
+
   #config.ssh.username = "vagrant"
   #config.vm.box_download_insecure = true
+
+  config.vm.boot_timeout = 600
 
   config.vm.define "vm-machinelearning-box" do |vgrml|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 3.1.0"
+    vgrml.vm.box_version = "= 3.2.0"
 
     # Alternative place: box elsewhere
     #vgrml.vm.box_url = "http://tiny.cc/ml-base64-310-box"
@@ -78,7 +81,7 @@ Vagrant.configure(2) do |config|
     #owner: vm_username
     #auto_mount: false
 
-    # Customize the virtual machine: set hostname & allocated RAM
+    # Customize the virtual machine: set hostname & resources (RAM, CPUs)
     vgrml.vm.hostname = "vm-machinelearning"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
@@ -98,6 +101,7 @@ Vagrant.configure(2) do |config|
                     1]
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
+
       # Adjust copy/paste between guest & host (for GUI startups)
       vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
       vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
@@ -134,9 +138,7 @@ Vagrant.configure(2) do |config|
     # using a specific IP.
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
-
     vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
-
 
     # **********************************************************************
     # Standard provisioning: install configuration files and startup scripts
@@ -150,7 +152,7 @@ Vagrant.configure(2) do |config|
     args: [ vm_username, vm_password ],
     inline: <<-SHELL
       # Create user
-      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo "$1" -s /bin/bash
+      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo,vboxsf "$1" -s /bin/bash
       # Set the password for the user
       echo "$1:$2" | chpasswd
 
@@ -176,10 +178,10 @@ ENDPROFILE
       su -l "$1" <<'USEREOF'
 for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
-PYVER=$(ls -d /opt/ipnb/lib/python?.? | xargs -n1 basename)
+PYVER=$(ls -d /opt/ipnb/lib/python?.* | xargs -n1 basename)
 rm -f bin/{python,$PYVER.7,pip,ipython,jupyter}
 ln -s /opt/ipnb/bin/{python,$PYVER,pip,ipython,jupyter} bin
-test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
+test -d IPNB || { rm -f IPNB; mkdir IPNB; cd IPNB; ln -s /vagrant/IPNB/ host; }
 echo 'alias dir="ls -al"' >> ~/.bashrc
 echo 'PS1="\\h#\\# \\W> "'   >> ~/.bashrc
 USEREOF
@@ -200,7 +202,7 @@ USEREOF
     inline: <<-SHELL
      USERNAME=$1
      NOTEBOOK_BASEDIR=/home/$USERNAME/IPNB
-     PASS=$(/opt/ipnb/bin/python -c "from notebook.auth.security import passwd; print(passwd('$2'))")
+     PASS=$(/opt/ipnb/bin/python -c "from jupyter_server.auth.security import passwd; print(passwd('$2'))")
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
@@ -210,6 +212,7 @@ from os import environ
 c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.port = $3
 c.NotebookApp.password = '$PASS'
+c.NotebookApp.allow_origin = '*'
 c.NotebookApp.notebook_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
 c.NotebookApp.open_browser = False
 c.NotebookApp.log_level = 'INFO'
@@ -233,7 +236,7 @@ EOF
 EOF
     SHELL
 
-    vgrml.vm.provision "30.extensions",
+    vgrml.vm.provision "30.icon",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -241,13 +244,8 @@ EOF
     inline: <<-SHELL
      USERNAME=$1
      su -l "$USERNAME" <<EOF
-# --------------------- Install the notebook extensions
-echo "Installing notebook extensions"
-/opt/ipnb/bin/python -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
-ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python?.?/site-packages
-
 # --------------------- Put the custom Jupyter icon in place
-cd /opt/ipnb/lib/python?.?/site-packages/notebook/static/base/images
+cd /opt/ipnb/lib/python?.*/site-packages/notebook/static/base/images
 mv favicon.ico favicon-orig.ico
 ln -s favicon-custom.ico favicon.ico
 EOF
@@ -261,6 +259,12 @@ EOF
     keep_color: true,
     args: [ vm_username ],
     inline: <<-SHELL
+     # Link the IPython mgr script so that it can be found by root
+     SCR=jupyter-notebook-mgr
+     chmod 775 /opt/ipnb/bin/$SCR
+     rm -f /usr/sbin/$SCR
+     ln -s /opt/ipnb/bin/$SCR /usr/sbin
+
      # Create the system config for IPython notebook
      CFGD=/etc/sysconfig
      test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
@@ -269,11 +273,6 @@ NOTEBOOK_USER="$1"
 NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 NOTEBOOK_BASEDIR="/home/$1/IPNB"
 EOF
-     # Link the IPython mgr script so that it can be found by root
-     SCR=jupyter-notebook-mgr
-     chmod 775 /opt/ipnb/bin/$SCR
-     rm -f /usr/sbin/$SCR
-     ln -s /opt/ipnb/bin/$SCR /usr/sbin
 
      # Enable the service
      systemctl enable notebook
@@ -436,12 +435,10 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         # Tensorflow 2 needs pip >= 19.0
-         pip install --upgrade "pip>19.0"
-         pip install --upgrade "tensorflow-cpu>=2.2"
-         pip install --upgrade torch==1.10.1+cpu \
-             torchvision==0.11.2+cpu torchaudio==0.10.1+cpu \
-             -f https://download.pytorch.org/whl/cpu/torch_stable.html
+         pip install --upgrade "tensorflow-cpu==2.11"
+         pip install --upgrade torch==1.13.1+cpu torchvision==0.14.1+cpu \
+             torchaudio==0.13.1 \
+             --extra-index-url https://download.pytorch.org/whl/cpu
       SHELL
 
 
