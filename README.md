@@ -17,14 +17,15 @@ The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 3.3.2
+* [Apache Spark](http://spark.apache.org/) 3.4.1
 * Python 3.10
 * A virtualenv for Python 3.10 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
-* R 4.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* R 4.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
 * Spark notebook Kernels for Python 3.10, Scala ([Almond](https://almond.sh/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.10 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
-* A notebook startup daemon script with facilities to configure Spark execution mode
-* RStudio Server (optional provisioning)
+  (only for the "classic" notebook interface)
+* A notebook startup daemon script
+* RStudio Server (as an optional provisioning)
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware.
 To develop notebooks in Python for Spark, the `Pyspark (Py 3)` kernel must be
@@ -39,10 +40,13 @@ saving it will make it work in future executions.
 
 ### Requirements
 
-* Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), 
-  and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
-  Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X. Note: **the VM will
-  not work with M1 & M2 Mac computers, it needs an Intel-based computer**
+Note: **this VM will not work with M1 & M2 Apple Mac computers, it needs an
+Intel-based computer**
+
+* Hardware & OS: A computer with enough free RAM (at least 2 GB of free RAM
+  for the guest OS is advisable), and around 10 GB of hard disk space, with a
+  64-bit Windows (7 or above), Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or
+  Mac OS X.
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 6.0 or above (if possible, use the latest version available)
   * [Vagrant](https://www.vagrantup.com/) 2.0 or above (if possible, use the latest version available)
@@ -142,7 +146,7 @@ In the two first cases the user logged in the console session will be `vmuser`
 (or, if that was changed in the Vagrantfile, the username defined there). In the
 last case it will be `vagrant`. 
 * The `vmuser` user is intended to execute processing tasks (and is the one 
-  running the Jupyter Notebook server), including Spark command-line 
+  running the Jupyter Notebook server), including Spark command-line
   applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as well as
   Python commands (use either `ipython` or `python`, which points to the
   virtualenv where all is installed).
@@ -221,9 +225,9 @@ It includes the following list:
 | rstudio | RStudio Server (see note below) |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
-| nlp | Some additional Python packages for Natural Language Processing |
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
+| nlp | Some additional Python packages for Natural Language Processing |
 | dl | Deep Learning libraries (Tensorflow, PyTorch) |
 
 
