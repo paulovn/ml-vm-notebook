@@ -88,19 +88,22 @@ Vagrant.configure(2) do |config|
   if vagrant_command == "ssh"
       config.ssh.username = vm_username
   end
+
   #config.ssh.username = "vagrant"
   #config.vm.box_download_insecure = true
 
-  config.vm.define "vm-spark-nb64" do |vgrml|
+  config.vm.boot_timeout = 600
+
+  config.vm.define "spark-34" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 3.1.2"
+    vgrml.vm.box_version = "= 3.4.0"
 
     # Alternative place: a local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -117,7 +120,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
 
     # Customize the virtual machine: set hostname & resources (RAM, CPUs)
-    vgrml.vm.hostname = "vgr-ipnb-spark"
+    vgrml.vm.hostname = "vgr-spark-34"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -204,7 +207,7 @@ Vagrant.configure(2) do |config|
     args: [ vm_username, vm_password ],
     inline: <<-SHELL
       # Create user
-      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo "$1" -s /bin/bash
+      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo,vboxsf "$1" -s /bin/bash
       # Set the password for the user
       echo "$1:$2" | chpasswd
 
@@ -232,10 +235,10 @@ ENDPROFILE
       su -l "$1" <<'USEREOF'
 for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
-PYVER=$(ls -d /opt/ipnb/lib/python?.? | xargs -n1 basename)
+PYVER=$(ls -d /opt/ipnb/lib/python?.* | xargs -n1 basename)
 rm -f bin/{python,$PYVER.7,pip,ipython,jupyter}
 ln -s /opt/ipnb/bin/{python,$PYVER,pip,ipython,jupyter} bin
-test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
+test -d IPNB || { rm -f IPNB; mkdir IPNB; cd IPNB; ln -s /vagrant/IPNB/ host; }
 echo 'alias dir="ls -al"' >> ~/.bashrc
 echo 'PS1="\\h#\\# \\W> "'   >> ~/.bashrc
 USEREOF
@@ -257,23 +260,23 @@ USEREOF
     inline: <<-SHELL
      USERNAME=$1
      NOTEBOOK_BASEDIR=/home/$USERNAME/IPNB
-     PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
+     PASS=$(/opt/ipnb/bin/python -c "from jupyter_server.auth.security import passwd; print(passwd('$2'))")
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
-     cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
-import os
-c.NotebookApp.ip = '0.0.0.0'
-c.NotebookApp.port = $3
-c.NotebookApp.password = '$PASS'
-c.NotebookApp.notebook_dir = os.environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
-c.NotebookApp.open_browser = False
-c.NotebookApp.log_level = 'INFO'
+     CFGFILE="/home/$USERNAME/.jupyter/jupyter_notebook_config.py"
+     cat <<-EOF > $CFGFILE
+from os import environ
+c.ServerApp.ip = '0.0.0.0'
+c.ServerApp.port = $3
+c.ServerApp.allow_origin = '*'
+c.ServerApp.root_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
+c.ServerApp.open_browser = False
+c.ServerApp.log_level = 'INFO'
+#c.ServerApp.password = '$PASS'
+c.PasswordIdentityProvider.hashed_password = '$PASS'
 EOF
-     chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
-
-     # --- Set the notebook service to start
-     systemctl enable notebook
+     chown $USERNAME.$USERNAME $CFGFILE
 
     SHELL
 
@@ -366,9 +369,9 @@ EOF
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<EOF
-       PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
-       # Add the SPARK_HOME env variable to R
-       echo "SPARK_HOME=$1/current" >> /home/$USERNAME/.Renviron
+        PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
+        # Add the SPARK_HOME env variable to R
+        echo "SPARK_HOME=$1/current" >> /home/$USERNAME/.Renviron
 EOF
      # Add the SPARK_HOME env variable to the kernel.json file
      #KERNEL_JSON="${KDIR}/ir/kernel.json"
@@ -379,6 +382,7 @@ EOF
 
     vgrml.vm.provision "14.gfversion",
     type: "shell",
+    run: "never",
     privileged: false,
     keep_color: true,
     args: [ spark_basedir ],
@@ -386,10 +390,21 @@ EOF
       cd $1/current/conf
       for f in spark-defaults.conf spark-env.sh
       do
-        sed -i -e 's/0\.8\.1-spark3\.0/0.8.2-spark3.1/' $f.local.graphframes
+        sed -i -e 's/0\.8\.3-spark3\.3/0.8.3-spark3.4/' $f.local.graphframes
       done
     SHELL
 
+
+    vgrml.vm.provision "15.log4j",
+    type: "shell",
+    privileged: true,
+    keep_color: true,
+    args: [ spark_basedir ],
+    inline: <<-SHELL
+     cd $1/current/conf
+     mv log4j.properties orig/log4j.properties.old
+     cp -p orig/log4j2.properties.template log4j2.properties
+    SHELL
 
     # .........................................
     # Create a configuration file for sparklyr/Rstudio
@@ -411,25 +426,33 @@ default:
 ENDFILE
     SHELL
 
-    vgrml.vm.provision "30.extensions",
+    vgrml.vm.provision "30.icon",
     type: "shell",
     privileged: true,
     keep_color: true,
     args: [ vm_username ],
     inline: <<-SHELL
-     USERNAME=$1
-     su -l "$USERNAME" <<EOF
+      USERNAME=$1
+      su -l "$USERNAME" <<-'EOF'
 # --------------------- Install the notebook extensions
-echo "Installing notebook extensions"
-/opt/ipnb/bin/python -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
-ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python?.?/site-packages
+#echo "Installing notebook extensions"
+#for ext in toc2/main toggle-headers search-replace python-markdown
+#for ext in toc2/main
+#do
+#        /opt/ipnb/bin/jupyter nbextension enable $ext
+#done
 
 # --------------------- Put the custom Jupyter icon in place
-cd /opt/ipnb/lib/python?.?/site-packages/notebook/static/base/images
-mv favicon.ico favicon-orig.ico
-ln -s favicon-custom.ico favicon.ico
+cd /opt/ipnb/lib/python?.*/site-packages
+B=$PWD
+for d in jupyter_server/static jupyter_server/static/favicons
+do
+        cd $B/$d
+        test -f favicon.ico && mv favicon.ico favicon-orig.ico
+        ln -s $B/notebook/static/base/images/favicon-custom.ico favicon.ico
+done
 EOF
-    SHELL
+     SHELL
 
     # .........................................
     # Install the Notebook startup script & configure it
@@ -446,9 +469,8 @@ EOF
      chmod 775 /opt/ipnb/bin/$SCR
      rm -f /usr/sbin/$SCR
      ln -s /opt/ipnb/bin/$SCR /usr/sbin
-     # note we do not enable the service -- we'll explicitly start it at the end
 
-     # Create the config for IPython notebook
+     # Create the system config for IPython notebook
      CFGD=/etc/sysconfig
      test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
      cat <<-EOF > $CFGD/jupyter-notebook
@@ -467,7 +489,9 @@ EOF
      echo "Configuring Spark mode as: $2"
      jupyter-notebook-mgr set-mode "$2"
 
-     # Start the service
+     # Enable & start the service
+     systemctl enable notebook
+     echo "Statring notebook service"
      systemctl start notebook
   SHELL
 
@@ -515,8 +539,8 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-2021.09.1-372-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/server/bionic/amd64/$PKG
+        PKG=rstudio-server-2023.09.0-463-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/jammy/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
@@ -544,10 +568,10 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
+          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern
           # We modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
-          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
+          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
     # .........................................
@@ -560,28 +584,10 @@ EOF
       inline: <<-SHELL
           # Define language
           LANGUAGE=spanish
-          CODE=es
           echo "** Adding support for $LANGUAGE to LaTeX"
-          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
           sudo apt-get install -y texlive-lang-spanish
-          LANGDAT=$(kpsewhich language.dat)
-          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
           echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
-      SHELL
-
-    # .........................................
-    # Install additional packages for NLP
-    vgrml.vm.provision "nlp",
-      type: "shell",
-      run: "never",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        echo "Installing additional NLP packages"
-        # pattern is Python 2 only
-        su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
+          perl -pi -e 's|(\\\\usepackage\\{fontspec})|${1}\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
     # .........................................
@@ -593,7 +599,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.5.4
+        VERSION=3.6.3
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
@@ -643,7 +649,6 @@ EOF
          chown $1.$1 /home/$1/.emacs
       SHELL
 
-
     # .........................................
     # Install some Deep Learning frameworks
     vgrml.vm.provision "dl",
@@ -652,32 +657,8 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         # Tensorflow 2 needs pip >= 19.0
-         pip install --upgrade "pip>19.0"
-         pip install --upgrade "tensorflow-cpu>=2.2"
-         pip install --upgrade torch==1.10.1+cpu \
-             torchvision==0.11.2+cpu torchaudio==0.10.1+cpu \
-             -f https://download.pytorch.org/whl/cpu/torch_stable.html
-      SHELL
-
-
-    # .........................................
-    # Install a couple of additional Jupyter kernels
-    vgrml.vm.provision "kernels",
-      type: "shell",
-      run: "never",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        echo "Installing additional kernels"
-        su -l "vagrant" -c "pip install aimlbotkernel sparqlkernel"
-        su -l "$1" <<-EOF
-         echo "Installing AIML-BOT & SPARQL kernels"
-         jupyter aimlbotkernel install --user
-         jupyter sparqlkernel install --user --logdir /var/log/ipnb
-EOF
-
+         pip install --upgrade "tensorflow-cpu>=2.14"
+         pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
  
 
