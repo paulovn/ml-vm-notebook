@@ -60,10 +60,10 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 3.2.0"
+    vgrml.vm.box_version = "= 3.3.0"
 
     # Alternative place: box elsewhere
-    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-310-box"
+    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-330-box"
     # Alternative place: local box
     #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/ml-base64-LOCAL.json"
 
@@ -82,7 +82,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
 
     # Customize the virtual machine: set hostname & resources (RAM, CPUs)
-    vgrml.vm.hostname = "vm-machinelearning"
+    vgrml.vm.hostname = "vgr-machinelearning-33"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -137,6 +137,7 @@ Vagrant.configure(2) do |config|
     # Create a private network, which allows host-only access to the machine
     # using a specific IP.
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
+
 
     vgrml.vm.post_up_message = "**** The Vagrant ML-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
 
@@ -209,13 +210,14 @@ USEREOF
      CFGFILE="/home/$USERNAME/.jupyter/jupyter_notebook_config.py"
      cat <<-EOF >$CFGFILE
 from os import environ
-c.NotebookApp.ip = '0.0.0.0'
-c.NotebookApp.port = $3
-c.NotebookApp.password = '$PASS'
-c.NotebookApp.allow_origin = '*'
-c.NotebookApp.notebook_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
-c.NotebookApp.open_browser = False
-c.NotebookApp.log_level = 'INFO'
+c.ServerApp.ip = '0.0.0.0'
+c.ServerApp.port = $3
+c.ServerApp.allow_origin = '*'
+c.ServerApp.root_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
+c.ServerApp.open_browser = False
+c.ServerApp.log_level = 'INFO'
+#c.ServerApp.password = '$PASS'
+c.PasswordIdentityProvider.hashed_password = '$PASS'
 EOF
      chown $USERNAME.$USERNAME $CFGFILE
     SHELL
@@ -232,7 +234,7 @@ EOF
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<EOF
-       PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
+        PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
 EOF
     SHELL
 
@@ -240,14 +242,17 @@ EOF
     type: "shell",
     privileged: true,
     keep_color: true,
-    args: [ vm_username ],
     inline: <<-SHELL
-     USERNAME=$1
-     su -l "$USERNAME" <<EOF
+      su -l "vagrant" <<-'EOF'
 # --------------------- Put the custom Jupyter icon in place
-cd /opt/ipnb/lib/python?.*/site-packages/notebook/static/base/images
-mv favicon.ico favicon-orig.ico
-ln -s favicon-custom.ico favicon.ico
+cd /opt/ipnb/lib/python?.*/site-packages
+B=$PWD
+for d in jupyter_server/static jupyter_server/static/favicons
+do
+        cd $B/$d
+        test -f favicon.ico && mv favicon.ico favicon.ico.orig
+        ln -s $B/notebook/static/base/images/favicon-custom.ico favicon.ico
+done
 EOF
     SHELL
 
@@ -274,10 +279,8 @@ NOTEBOOK_SCRIPT="/opt/ipnb/bin/jupyter-notebook"
 NOTEBOOK_BASEDIR="/home/$1/IPNB"
 EOF
 
-     # Enable the service
+     # Enable & start the service
      systemctl enable notebook
-
-     # Start the service
      echo "Starting notebook service"
      systemctl start notebook
   SHELL
@@ -301,8 +304,8 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-2021.09.1-372-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/server/bionic/amd64/$PKG
+        PKG=rstudio-server-2023.09.0-463-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/jammy/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
@@ -334,7 +337,6 @@ EOF
           # We modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
           perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
-
       SHELL
 
     # .........................................
@@ -426,7 +428,6 @@ EOF
          chown $1.$1 /home/$1/.emacs
       SHELL
 
-
     # .........................................
     # Install some Deep Learning frameworks
     vgrml.vm.provision "dl",
@@ -435,10 +436,8 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu==2.11"
-         pip install --upgrade torch==1.13.1+cpu torchvision==0.14.1+cpu \
-             torchaudio==0.13.1 \
-             --extra-index-url https://download.pytorch.org/whl/cpu
+         pip install --upgrade "tensorflow-cpu>=2.14"
+         pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
 
 

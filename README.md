@@ -16,7 +16,7 @@ The repository also contains a number of small example notebooks.
 The contents of the VM are:
 * Python 3.10
 * A virtualenv for Python 3.10 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
-* R 4.2 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies).
+* R 4.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies).
 * A few small notebook extensions
 
 
@@ -27,7 +27,7 @@ The contents of the VM are:
 * Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), 
   and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
   Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X. Note: **the VM will
-  not work with M1 & M2 Mac computers, it needs an Intel-based computer**
+  not work with M1/M2/M3 Mac computers, it needs an Intel-based computer**
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 6.0 or above (if possible, use the latest version available)
   * [Vagrant](https://www.vagrantup.com/) 2.0 or above (if possible, use the latest version available)
@@ -36,7 +36,7 @@ The contents of the VM are:
 
 1. Copy the Vagrantfile + examples into the computer, either by cloning the 
    repository or by downloading and extracting all files in the packaged
-   [ZIP file](https://github.com/paulovn/ml-vm-notebook/archive/develop.zip). 
+   [ZIP file](https://github.com/paulovn/ml-vm-notebook/archive/uned.zip). 
    Make sure to use a disk or partition with the mentioned 10 GB of free space.
    Also, in Windows it might be advisable to avoid using a folder name with
    spaces (since sometimes it causes problems).
@@ -100,7 +100,7 @@ logfiles are generated in `/var/log/ipnb` inside the VM:
 
 In addition to creating, editing and executing Notebooks via the Web interface,
 there may also be the need to operate through a console session. There are
-three ways to obtain console access to the VM:
+hthree ways to obtain console access to the VM:
 
 1. By using the console option in the Notebook Web interface (use the right
    menu: *New* -> *Terminal*)
