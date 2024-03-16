@@ -5,7 +5,7 @@
 # **************************************************************************
 
 # --------------------------------------------------------------------------
-# Variables defining the configuration of notebook 
+# Variables defining the configuration of the notebook environment
 # Modify as needed
 
 # RAM memory used for the VM, in MB
@@ -60,10 +60,10 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 3.3.0"
+    vgrml.vm.box_version = "= 3.3.1"
 
     # Alternative place: box elsewhere
-    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-330-box"
+    #vgrml.vm.box_url = "http://tiny.cc/ml-base64-331-box"
     # Alternative place: local box
     #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/ml-base64-LOCAL.json"
 

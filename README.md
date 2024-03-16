@@ -7,9 +7,9 @@ This instance builds on the `ml-base64` VM (which already provides all
 the needed software packages, on an Ubuntu 22.04 box). On top of that, it
 configures and launches a Jupyter Notebook process, exported as an HTTP service
 to a local port. It allows creating notebooks with two different kernels:
-  * Python 3.10 (plain Python, with additional libraries such as NumPy, SciPy,
+  * Python 3.10 (Python, with installed additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
-  * R
+  * R (IRkernel)
 
 The repository also contains a number of small example notebooks.
 
@@ -17,7 +17,6 @@ The contents of the VM are:
 * Python 3.10
 * A virtualenv for Python 3.10 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
 * R 4.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies).
-* A few small notebook extensions
 
 
 ## Installation
