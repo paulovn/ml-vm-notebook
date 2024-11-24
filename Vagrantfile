@@ -657,7 +657,7 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu>=2.14"
+         pip install --upgrade "tensorflow-cpu>=2.14,<2.18"
          pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
  
