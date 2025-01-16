@@ -11,7 +11,7 @@
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
 # Number of CPU cores assigned to the VM
-vm_cpus = '1'
+vm_cpus = '2'
 
 # Password to use to access the Notebook web interface
 vm_password = 'vmuser'
@@ -129,7 +129,7 @@ Vagrant.configure(2) do |config|
       # Set the number of CPUs
       vb.cpus = vm_cpus
       # Use the DNS proxy of the NAT engine (helps in some VPN environments)
-      #vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       # Control guest clock adjustment
       vb.customize ["guestproperty", "set", :id,
                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
@@ -599,7 +599,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.6.3
+        VERSION=3.9.9
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
@@ -657,7 +657,7 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu>=2.14"
+         pip install --upgrade "tensorflow-cpu>=2.14,<2.18"
          pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
  
