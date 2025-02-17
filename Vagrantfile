@@ -30,6 +30,9 @@ port_nb = 8008
 # Note there is an additional port exported: the Spark UI driver is
 # forwarded to port 4040
 
+# Size of the swap file in MB. Use 0 for no swap
+swap_size = 2000
+
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
 # It can be changed at runtime by executing inside the virtual machine, as
@@ -47,11 +50,11 @@ spark_mode = 'local'
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn
 # mode, or the Spark master in standalone mode)
-spark_master = 'localhost'
+spark_master = ''
 # [B] The host running the HDFS namenode
-spark_namenode = 'localhost'
+spark_namenode = ''
 # [C] The location (host:port) of the Spark History Server
-spark_history_server = 'localhost:18080'
+spark_history_server = ''
 # ------------------
 
 
@@ -94,13 +97,13 @@ Vagrant.configure(2) do |config|
 
   config.vm.boot_timeout = 600
 
-  config.vm.define "spark-34" do |vgrml|
+  config.vm.define "spark-35" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 3.4.0"
+    vgrml.vm.box_version = "= 3.5.0"
 
     # Alternative place: a local box
     #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/spark-base64-LOCAL.json"
@@ -120,7 +123,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
 
     # Customize the virtual machine: set hostname & resources (RAM, CPUs)
-    vgrml.vm.hostname = "vgr-spark-34"
+    vgrml.vm.hostname = "vgr-spark-35"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -200,6 +203,28 @@ Vagrant.configure(2) do |config|
     # These are run by default upon VM installation
 
     # .........................................
+    # Create a swap file
+    vgrml.vm.provision "00.swap",
+    type: "shell",
+    privileged: true,
+    args: [ swap_size ],
+    inline: <<-SHELL
+      if [ -f /etc/fstab.swap -a "$1" -gt 0 ]
+      then
+        SWAPFILE=/swap.img
+        echo "Creating swapfile ($1 MB)"
+        dd if=/dev/zero of=$SWAPFILE bs=1MiB count=$1
+        chmod 600 $SWAPFILE
+        mkswap $SWAPFILE
+
+        mv /etc/fstab /etc/fstab.noswap
+        cp -p /etc/fstab.swap /etc/fstab
+
+        swapon --all
+      fi
+    SHELL
+
+    # .........................................
     # Create the user to run Spark jobs (esp. notebook processes)
     vgrml.vm.provision "01.nbuser",
     type: "shell",
@@ -229,7 +254,7 @@ export R_LIBS_USER=~/.Rlibrary
 # Jupyter uses this to define datadir but it is undefined when using "runuser"
 test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
-      chown $1.$1 /home/$1/.bash_profile
+      chown $1:$1 /home/$1/.bash_profile
 
       # Create some local files as the designated user
       su -l "$1" <<'USEREOF'
@@ -245,7 +270,7 @@ USEREOF
 
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
-      chown $1.$1 /home/$1/.ssh/authorized_keys
+      chown $1:$1 /home/$1/.ssh/authorized_keys
     SHELL
 
     # .........................................
@@ -276,7 +301,7 @@ c.ServerApp.log_level = 'INFO'
 #c.ServerApp.password = '$PASS'
 c.PasswordIdentityProvider.hashed_password = '$PASS'
 EOF
-     chown $USERNAME.$USERNAME $CFGFILE
+     chown $USERNAME:$USERNAME $CFGFILE
 
     SHELL
 
@@ -481,17 +506,18 @@ EOF
 
      # Configure remote addresses
      if [ "$3" ]; then
+       echo "Configuring Spark server [$3]"
        jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
        jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
      fi
 
      # Set the name of the initially active config
-     echo "Configuring Spark mode as: $2"
+     echo "Configuring Spark mode [$2]"
      jupyter-notebook-mgr set-mode "$2"
 
      # Enable & start the service
      systemctl enable notebook
-     echo "Statring notebook service"
+     echo "Starting notebook service"
      systemctl start notebook
   SHELL
 
@@ -510,16 +536,16 @@ EOF
       inline: <<-SHELL
         cd $1/current/conf
         NAME=spark-defaults.conf
-        if [ "$(readlink $NAME)" = "${NAME}.local" ]
+        if [ "$(readlink $NAME)" = "opt/${NAME}.local" ]
         then
            echo "activating GraphFrames"
-           ln -sf ${NAME}.local.graphframes $NAME
-           ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
+           ln -sf opt/${NAME}.graphframes $NAME
+           ln -sf opt/spark-env.sh.graphframes spark-env.sh
+        elif [ "$(readlink $NAME)" = "opt/${NAME}.graphframes" ]
         then
            echo "deactivating GraphFrames"
-           ln -sf ${NAME}.local ${NAME}
-           ln -sf spark-env.sh.local spark-env.sh
+           ln -sf opt/${NAME}.local ${NAME}
+           ln -sf opt/spark-env.sh.local spark-env.sh
         else
            echo "No local configuration active"
         fi
@@ -539,7 +565,7 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-2023.09.0-463-amd64.deb
+        PKG=rstudio-server-2024.12.0-467-amd64.deb
         wget --no-verbose https://download2.rstudio.org/server/jammy/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
@@ -568,10 +594,12 @@ EOF
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern
+          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern inkscape nb-pdf-template
           # We modify the LaTeX template to generate A4 pages
-          # (comment this out to keep Letter-sized pages)
+          # (comment this out to keep Letter-sized pages) 
           perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+          # Use an improved template
+          echo "c.LatexExporter.template_name = 'latex_authentic'" >> $HOME/.jupyter/jupyter_notebook_config.py
       SHELL
 
     # .........................................
@@ -632,13 +660,7 @@ EOF
         # Install sbt
         echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
-        # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs"
-        cat <<EOF >> /home/$1/.emacs
-
-; Install MELPA package repository
-(require 'package)
-(add-to-list 'package-archives
+        # Install scala-mhives
             '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
 ; Install Scala mode
@@ -646,7 +668,7 @@ EOF
     (package-refresh-contents) (package-install 'scala-mode))
 
 EOF
-         chown $1.$1 /home/$1/.emacs
+         chown $1:$1 /home/$1/.emacs
       SHELL
 
     # .........................................
@@ -657,8 +679,8 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu>=2.14,<2.18"
-         pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+         pip install --upgrade "tensorflow-cpu==2.18"
+         pip install --upgrade torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
  
 
