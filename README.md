@@ -4,27 +4,28 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `spark-base64` VM (which already provides all 
-the needed software packages, on an Ubuntu 20.04). On top of that, it configures
-and launches a Jupyter Notebook process, exported as an HTTP service to a local
-port. It allows creating notebooks with four different kernels:
-  * Python 3.8 (plain Python, with additional libraries such as NumPy, SciPy,
+the needed software packages, on an Ubuntu 24.04 box). On top of that, it
+configures and launches a Jupyter Notebook process, exported as an HTTP service
+to a local port. It allows creating notebooks with four different kernels:
+  * Python 3.12 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
-  * Pyspark (Python 3.8 + libraries + Spark),
-  * Scala 2.12 + Spark
+  * Pyspark (Python 3.12 + libraries + Spark),
+  * Scala 2.12 (with the capability of connecting to Spark)
   * R (with SparkR available, though not loaded by default).
 
 The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 3.1.2
-* Python 3.8.5
-* A virtualenv for Python 3.8.5 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 7 + Jupyter notebook
-* R 4.0.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
-* Spark notebook Kernels for Python 3.8, Scala ([Almond](https://almond.sh/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.6 kernel.
+* [Apache Spark](http://spark.apache.org/) 3.5.4
+* Python 3.12
+* A virtualenv for Python 3.12 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
+* R 4.4 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* Spark notebook Kernels for Python 3.12, Scala ([Almond](https://almond.sh/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.12 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
-* A notebook startup daemon script with facilities to configure Spark execution mode
-* RStudio Server (optional provisioning)
+  (only for the "classic" notebook interface)
+* A notebook startup daemon script
+* RStudio Server (as an optional provisioning)
 
 **Important**: the default Python kernel for notebooks is **not** Spark-aware.
 To develop notebooks in Python for Spark, the `Pyspark (Py 3)` kernel must be
@@ -39,11 +40,15 @@ saving it will make it work in future executions.
 
 ### Requirements
 
-* Hardware & OS: A computer with enough free RAM (at least 2 GB is advisable), 
-  and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
-  Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X
+Note: **this VM will not work with M1 & M2 Apple Mac computers, it needs an
+Intel-based computer**
+
+* Hardware & OS: A computer with enough free RAM (at least 2 GB of free RAM
+  for the guest OS is advisable), and around 10 GB of hard disk space, with a
+  64-bit Windows (7 or above), Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or
+  Mac OS X.
 * Software: The following must be installed in the computer:
-  * [Virtualbox](https://www.virtualbox.org/) 5.0 or above
+  * [Virtualbox](https://www.virtualbox.org/) 6.0 or above (if possible, use the latest version available)
   * [Vagrant](https://www.vagrantup.com/) 2.0 or above (if possible, use the latest version available)
 
 
@@ -75,17 +80,20 @@ saving it will make it work in future executions.
 5. Then the VM will be started and provisioned. The process will print progress
    messages to the terminal.
 
-The base box (the one that was created by the [base repository](https://github.com/paulovn/machine-learning-vm)) must be downloadable when provisioning this VM. The
-default URL in the Vagrantfile points to a box publicly available in VagrantCloud,
-so there should be no problem as long as there is a working Internet connection.
+The base box (the one that was created by the [base
+repository](https://github.com/paulovn/machine-learning-vm)) must be
+downloadable when provisioning this VM. The default URL in the Vagrantfile
+points to a box publicly available in
+[VagrantCloud](https://app.vagrantup.com/boxes/search), so there should be no
+problem as long as there is a working Internet connection.
 
 
 ## Operation
 
 Once installation finishes, a notebook server will be running on
-[`http://localhost:8008`](http://localhost:8008). Use a Web browser to access
-it. By default it is also accessible externally, i.e. other machines in the
-network can also connect to it (unless the host computer has a firewall that
+[`http://localhost:8008`](http://localhost:8008). Use a Web browser to
+access it. By default it is also accessible externally, i.e. other machines in
+the network can also connect to it (unless the host computer has a firewall that
 blocks port 8008).
 
 Using the notebook interface will require the access password defined in
@@ -97,8 +105,9 @@ the host and the VM:
    the VM as the `/vagrant` directory, so anything in that subfolder can be 
    accessed within the VM.
  * Furthermore, the notebook server is configured to browse the files in the
-   `vmfiles/IPNB` subdirectory, so to add notebooks place them in that 
-   subdirectory. A few example mini-notebooks are already provided there.
+   `vmfiles/IPNB` subdirectory (it appears under the notebook interface as the
+   `host` folder), so to add notebooks place them in that subdirectory. A few
+   example mini-notebooks are already provided there.
  * Finally, the `vmfiles/hive` subdirectory is the place configured in
    Spark SQL for its metastore & tables (so it should survive to changes in
    the VM).
@@ -137,7 +146,7 @@ In the two first cases the user logged in the console session will be `vmuser`
 (or, if that was changed in the Vagrantfile, the username defined there). In the
 last case it will be `vagrant`. 
 * The `vmuser` user is intended to execute processing tasks (and is the one 
-  running the Jupyter Notebook server), including Spark command-line 
+  running the Jupyter Notebook server), including Spark command-line
   applications such as `spark-submit`, `spark-shell`, `pyspark`, etc as well as
   Python commands (use either `ipython` or `python`, which points to the
   virtualenv where all is installed).
@@ -158,8 +167,8 @@ folder.
 
 Inside the VM (i.e. as seen from within a console session), Spark is installed
 in `/opt/spark/current/`. The two important Spark config files are:
-* `/opt/spark/current/conf/spark-env.sh`: environment variables used by the
-  Spark deployment inside the VM
+* `/opt/spark/current/conf/spark-env.sh`: environment variables used by
+  the Spark deployment inside the VM
 * `/opt/spark/current/conf/spark-defaults.conf`: configuration properties
   used by Spark
 
@@ -181,7 +190,7 @@ system tables will be written. Both places are configured to subfolders of the
 Note that due to Derby being a single-process DB, only one Spark SQL process
 may be active at any given moment (since it would collide over the use of the
 metastore). This means that there should be only one active Notebook (or Spark
-shell) making use of an `sqlContext`. 
+shell) making use of the Spark SQL engine.
 
 To allow more than one Notebook at the same time, the 
 `javax.jdo.option.ConnectionURL` configuration property in `hive-site.xml` 
@@ -208,7 +217,7 @@ provisioned with:
 
       vagrant provision --provision-with <name>
 
-It includes the following list:
+It includes the following list of capabilities:
 
 | name | package contents |
 | ---- | ---------------- |
@@ -221,9 +230,9 @@ It includes the following list:
 | rstudio | RStudio Server (see note below) |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
-| nlp | Some additional Python packages for Natural Language Processing |
 | mvn | Maven build automation tool for Java |
 | scala  | Scala & SBT. *Note that this is not needed to execute Scala code in the provided Jupyter kernel; it is for standalone Scala programs* |
+| nlp | Some additional Python packages for Natural Language Processing |
 | dl | Deep Learning libraries (Tensorflow, PyTorch) |
 
 

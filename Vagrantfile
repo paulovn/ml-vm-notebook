@@ -10,8 +10,9 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
+
 # Number of CPU cores assigned to the VM
-vm_cpus = '1'
+vm_cpus = '2'
 
 # Password to use to access the Notebook web interface
 vm_password = 'vmuser'
@@ -30,6 +31,9 @@ port_nb = 8008
 # Note there is an additional port exported: the Spark UI driver is
 # forwarded to port 4040
 
+# Size of the swap file in MB. Use 0 for no swap
+swap_size = 2000
+
 # This defines the Spark notebook processing mode. There are three choices
 # available: "local", "yarn", "standalone"
 # It can be changed at runtime by executing inside the virtual machine, as
@@ -47,11 +51,11 @@ spark_mode = 'local'
 
 # [A] The location of the cluster master (the YARN Resource Manager in Yarn
 # mode, or the Spark master in standalone mode)
-spark_master = 'localhost'
+spark_master = ''
 # [B] The host running the HDFS namenode
-spark_namenode = 'localhost'
+spark_namenode = ''
 # [C] The location (host:port) of the Spark History Server
-spark_history_server = 'localhost:18080'
+spark_history_server = ''
 # ------------------
 
 
@@ -88,19 +92,22 @@ Vagrant.configure(2) do |config|
   if vagrant_command == "ssh"
       config.ssh.username = vm_username
   end
+
   #config.ssh.username = "vagrant"
   #config.vm.box_download_insecure = true
 
-  config.vm.define "vm-spark-nb64" do |vgrml|
+  config.vm.boot_timeout = 600
+
+  config.vm.define "ceste-bigdata" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 3.1.2"
+    vgrml.vm.box_version = "= 3.5.0"
 
     # Alternative place: a local box
-    #vgrml.vm.box_url = "file:///almacen/VM/VagrantBox/spark-base64-LOCAL.json"
+    #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/spark-base64-LOCAL.json"
 
     # Disable automatic box update checking. If you disable this, then
     # boxes will only be checked for updates when the user runs
@@ -122,13 +129,13 @@ Vagrant.configure(2) do |config|
     vgrml.vm.hostname = "localhost"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
-      vb.name = "vgr-ipnb-spark"
+      vb.name = "vgr-ceste-bigdata"
       # Customize the amount of memory on the VM
       vb.memory = vm_memory
       # Set the number of CPUs
       vb.cpus = vm_cpus
       # Use the DNS proxy of the NAT engine (helps in some VPN environments)
-      #vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       # Control guest clock adjustment
       vb.customize ["guestproperty", "set", :id,
                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
@@ -138,6 +145,7 @@ Vagrant.configure(2) do |config|
                     1]
       # Display the VirtualBox GUI when booting the machine
       #vb.gui = true
+
       # Adjust copy/paste between guest & host (for GUI startups)
       vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
       vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
@@ -213,11 +221,33 @@ Vagrant.configure(2) do |config|
     #vgrml.vm.network "private_network", ip: "192.72.33.10"
 
 
-    vgrml.vm.post_up_message = "**** The Vagrant Spark-Notebook machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
+    vgrml.vm.post_up_message = "**** The Vagrant CESTE BigData machine is up. Connect to http://localhost:" + port_nb.to_s + " for notebook access"
 
     # **********************************************************************
     # Standard provisioning: Spark configuration files and startup scripts
     # These are run by default upon VM installation
+
+    # .........................................
+    # Create a swap file
+    vgrml.vm.provision "00.swap",
+    type: "shell",
+    privileged: true,
+    args: [ swap_size ],
+    inline: <<-SHELL
+      if [ -f /etc/fstab.swap -a "$1" -gt 0 ]
+      then
+        SWAPFILE=/swap.img
+        echo "Creating swapfile ($1 MB)"
+        dd if=/dev/zero of=$SWAPFILE bs=1MiB count=$1
+        chmod 600 $SWAPFILE
+        mkswap $SWAPFILE
+
+        mv /etc/fstab /etc/fstab.noswap
+        cp -p /etc/fstab.swap /etc/fstab
+
+        swapon --all
+      fi
+    SHELL
 
     # .........................................
     # Create the user to run Spark jobs (esp. notebook processes)
@@ -227,7 +257,7 @@ Vagrant.configure(2) do |config|
     args: [ vm_username, vm_password ],
     inline: <<-SHELL
       # Create user
-      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo "$1" -s /bin/bash
+      id "$1" >/dev/null 2>&1 || useradd -c 'VM User' -m -G vagrant,sudo,vboxsf "$1" -s /bin/bash
       # Set the password for the user
       echo "$1:$2" | chpasswd
 
@@ -249,31 +279,30 @@ export R_LIBS_USER=~/.Rlibrary
 # Jupyter uses this to define datadir but it is undefined when using "runuser"
 test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
-      chown $1.$1 /home/$1/.bash_profile
+      chown $1:$1 /home/$1/.bash_profile
 
       # Create some local files as the designated user
       su -l "$1" <<'USEREOF'
 for d in bin tmp .ssh .jupyter .Rlibrary; do test -d $d || mkdir $d; done
 chmod 700 .ssh
-PYVER=$(ls -d /opt/ipnb/lib/python?.? | xargs -n1 basename)
+PYVER=$(ls -d /opt/ipnb/lib/python?.* | xargs -n1 basename)
 rm -f bin/{python,$PYVER.7,pip,ipython,jupyter}
 ln -s /opt/ipnb/bin/{python,$PYVER,pip,ipython,jupyter} bin
-test -h IPNB || { rm -f IPNB; ln -s /vagrant/IPNB/ IPNB; }
+test -d IPNB || { rm -f IPNB; mkdir IPNB; cd IPNB; ln -s /vagrant/IPNB/ host; }
 echo 'alias dir="ls -al"' >> ~/.bashrc
 echo 'PS1="\\h#\\# \\W> "'   >> ~/.bashrc
 USEREOF
 
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
-      chown $1.$1 /home/$1/.ssh/authorized_keys
-
+      chown $1:$1 /home/$1/.ssh/authorized_keys
     SHELL
 
     # .........................................
     # Create the IPython Notebook profile ready to run Spark jobs
     # and install all kernels: Pyspark, Scala, IRKernel, and extensions
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
-    vgrml.vm.provision "10.config",
+    vgrml.vm.provision "10.jupyterconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -281,23 +310,23 @@ USEREOF
     inline: <<-SHELL
      USERNAME=$1
      NOTEBOOK_BASEDIR=/home/$USERNAME/IPNB
-     PASS=$(/opt/ipnb/bin/python -c "from IPython.lib import passwd; print(passwd('$2'))")
+     PASS=$(/opt/ipnb/bin/python -c "from jupyter_server.auth.security import passwd; print(passwd('$2'))")
 
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
-     cat <<-EOF > /home/$USERNAME/.jupyter/jupyter_notebook_config.py
-import os
-c.NotebookApp.ip = '0.0.0.0'
-c.NotebookApp.port = $3
-c.NotebookApp.password = '$PASS'
-c.NotebookApp.notebook_dir = os.environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
-c.NotebookApp.open_browser = False
-c.NotebookApp.log_level = 'INFO'
+     CFGFILE="/home/$USERNAME/.jupyter/jupyter_notebook_config.py"
+     cat <<-EOF > $CFGFILE
+from os import environ
+c.ServerApp.ip = '0.0.0.0'
+c.ServerApp.port = $3
+c.ServerApp.allow_origin = '*'
+c.ServerApp.root_dir = environ.get('NOTEBOOK_BASEDIR','$NOTEBOOK_BASEDIR')
+c.ServerApp.open_browser = False
+c.ServerApp.log_level = 'INFO'
+#c.ServerApp.password = '$PASS'
+c.PasswordIdentityProvider.hashed_password = '$PASS'
 EOF
-     chown $USERNAME.$USERNAME /home/$USERNAME/.jupyter/jupyter_notebook_config.py
-
-     # --- Set the notebook service to start
-     systemctl enable notebook
+     chown $USERNAME:$USERNAME $CFGFILE
 
     SHELL
 
@@ -378,7 +407,8 @@ PYTH
 EOF
     SHELL
 
-    vgrml.vm.provision "13.ir",
+    # R Kernel
+    vgrml.vm.provision "13.ir-kernel",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -390,9 +420,9 @@ EOF
      # --------------------- Install the IRkernel
      echo "Installing IRkernel ..."
      su -l "$USERNAME" <<EOF
-       PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
-       # Add the SPARK_HOME env variable to R
-       echo "SPARK_HOME=$1/current" >> /home/$USERNAME/.Renviron
+        PATH=/opt/ipnb/bin:$PATH Rscript -e 'IRkernel::installspec()'
+        # Add the SPARK_HOME env variable to R
+        echo "SPARK_HOME=$1/current" >> /home/$USERNAME/.Renviron
 EOF
      # Add the SPARK_HOME env variable to the kernel.json file
      #KERNEL_JSON="${KDIR}/ir/kernel.json"
@@ -401,9 +431,26 @@ EOF
      #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
     SHELL
 
+
+    # Update spark config
+    vgrml.vm.provision "15.sparkconf",
+    type: "shell",
+    privileged: true,
+    keep_color: true,
+    args: [ spark_basedir ],
+    inline: <<-SHELL
+     cd $1/current/conf
+     # Log4j
+     mv log4j.properties orig/log4j.properties.old
+     cp -p orig/log4j2.properties.template log4j2.properties
+     sed -i 's/rootLogger.level = info/rootLogger.level = warn/' log4j2.properties
+     # Make the Hive configuration available
+     ln -s hadoop/hive-site.xml .
+    SHELL
+
     # .........................................
     # Create a configuration file for sparklyr/Rstudio
-    vgrml.vm.provision "20.Rconfig",
+    vgrml.vm.provision "20.Rconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -421,30 +468,38 @@ default:
 ENDFILE
     SHELL
 
-    vgrml.vm.provision "30.extensions",
+    vgrml.vm.provision "30.icon",
     type: "shell",
     privileged: true,
     keep_color: true,
     args: [ vm_username ],
     inline: <<-SHELL
-     USERNAME=$1
-     su -l "$USERNAME" <<EOF
+      USERNAME=$1
+      su -l "$USERNAME" <<-'EOF'
 # --------------------- Install the notebook extensions
-echo "Installing notebook extensions"
-/opt/ipnb/bin/python -c 'from notebook.services.config import ConfigManager; ConfigManager().update("notebook", {"load_extensions": {"toc": True, "toggle-headers": True, "search-replace": True, "python-markdown": True }})'
-ln -fs /opt/ipnb/share/jupyter/pre_pymarkdown.py /opt/ipnb/lib/python?.?/site-packages
+#echo "Installing notebook extensions"
+#for ext in toc2/main toggle-headers search-replace python-markdown
+#for ext in toc2/main
+#do
+#        /opt/ipnb/bin/jupyter nbextension enable $ext
+#done
 
 # --------------------- Put the custom Jupyter icon in place
-cd /opt/ipnb/lib/python?.?/site-packages/notebook/static/base/images
-mv favicon.ico favicon-orig.ico
-ln -s favicon-custom.ico favicon.ico
+cd /opt/ipnb/lib/python?.*/site-packages
+B=$PWD
+for d in jupyter_server/static jupyter_server/static/favicons
+do
+        cd $B/$d
+        test -f favicon.ico && mv favicon.ico favicon-orig.ico
+        ln -s $B/notebook/static/base/images/favicon-custom.ico favicon.ico
+done
 EOF
-    SHELL
+     SHELL
 
     # .........................................
     # Install the Notebook startup script & configure it
     # Configure Spark execution mode & remote access if defined
-    vgrml.vm.provision "31.nbconfig",
+    vgrml.vm.provision "31.nbconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -456,9 +511,8 @@ EOF
      chmod 775 /opt/ipnb/bin/$SCR
      rm -f /usr/sbin/$SCR
      ln -s /opt/ipnb/bin/$SCR /usr/sbin
-     # note we do not enable the service -- we'll explicitly start it at the end
 
-     # Create the config for IPython notebook
+     # Create the system config for IPython notebook
      CFGD=/etc/sysconfig
      test -d ${CFGD} || { CFGD=/etc/jupyter; mkdir $CFGD; }
      cat <<-EOF > $CFGD/jupyter-notebook
@@ -469,15 +523,18 @@ EOF
 
      # Configure remote addresses
      if [ "$3" ]; then
+       echo "Configuring Spark server [$3]"
        jupyter-notebook-mgr set-addr yarn "$3" "$4" "$5"
        jupyter-notebook-mgr set-addr standalone "$3" "$4" "$5"
      fi
 
      # Set the name of the initially active config
-     echo "Configuring Spark mode as: $2"
+     echo "Configuring Spark mode [$2]"
      jupyter-notebook-mgr set-mode "$2"
 
-     # Start the service
+     # Enable & start the service
+     systemctl enable notebook
+     echo "Starting notebook service"
      systemctl start notebook
   SHELL
 
@@ -485,43 +542,6 @@ EOF
     # Optional provisioning
     # These need to be run explicitly
 
-    # .........................................
-    # Install the necessary components for nbconvert to work.
-    vgrml.vm.provision "nbc",
-      type: "shell",
-      run: "never",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-          echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-xetex texlive-generic-recommended texlive-fonts-recommended lmodern
-          # We modify the LaTeX template to generate A4 pages
-          # (comment this out to keep Letter-sized pages)
-          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
-      SHELL
-
-    # .........................................
-    # Optional: modify nbconvert to process Spanish documents
-    vgrml.vm.provision "nbc.es",
-      type: "shell",
-      run: "never",
-      privileged: false,
-      keep_color: true,
-      inline: <<-SHELL
-          # Define language
-          LANGUAGE=spanish
-          CODE=es
-          echo "** Adding support for $LANGUAGE to LaTeX"
-          # https://tex.stackexchange.com/questions/345632/f25-texlive2016-no-hyphenation-patterns-were-preloaded-for-the-language-russian
-          sudo apt-get install -y texlive-lang-spanish
-          LANGDAT=$(kpsewhich language.dat)
-          sudo bash -c "echo -e '\n$LANGUAGE hyph-${CODE}.tex\n=use$LANGUAGE' >> $LANGDAT" && sudo fmtutil-sys --all
-          echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's(\\\\usepackage\\[T1\\]\\{fontenc})(\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'});' -e 's#\\\\usepackage\\[utf8x\\]\\{inputenc}#%--removed--#;' /opt/ipnb/lib/python?.?/site-packages/nbconvert/templates/latex/base.tplx
-      SHELL
-
-    # .........................................
     # Modify Spark configuration to add or remove GraphFrames
     vgrml.vm.provision "graphframes",
       type: "shell",
@@ -532,16 +552,16 @@ EOF
       inline: <<-SHELL
         cd $1/current/conf
         NAME=spark-defaults.conf
-        if [ "$(readlink $NAME)" = "${NAME}.local" ]
+        if [ "$(readlink $NAME)" = "opt/${NAME}.local" ]
         then
            echo "activating GraphFrames"
-           ln -sf ${NAME}.local.graphframes $NAME
-           ln -sf spark-env.sh.local.graphframes spark-env.sh
-        elif [ "$(readlink $NAME)" = "${NAME}.local.graphframes" ]
+           ln -sf opt/${NAME}.graphframes $NAME
+           ln -sf opt/spark-env.sh.graphframes spark-env.sh
+        elif [ "$(readlink $NAME)" = "opt/${NAME}.graphframes" ]
         then
            echo "deactivating GraphFrames"
-           ln -sf ${NAME}.local ${NAME}
-           ln -sf spark-env.sh.local spark-env.sh
+           ln -sf opt/${NAME}.local ${NAME}
+           ln -sf opt/spark-env.sh.local spark-env.sh
         else
            echo "No local configuration active"
         fi
@@ -557,18 +577,23 @@ EOF
         BASE=/opt/hadoop
         test -d $BASE || mkdir -p $BASE
         cd $BASE
-        VERSION=3.2.2
+        VERSION=3.2.4
+
         echo "Downloading Hadoop $VERSION ..."
         T=hadoop-$VERSION
         rm -rf $T
-        wget --progress=dot:giga https://archive.apache.org/dist/hadoop/core/$T/$T.tar.gz
+        URL_BASE=https://downloads.apache.org/hadoop/core
+        #URL_BASE=https://archive.apache.org/dist/hadoop/core
+        wget --progress=dot:giga $URL_BASE/$T/$T.tar.gz || exit 1
+
         echo "Extracting Hadoop $VERSION ..."
-        tar zxvf $T.tar.gz $T/bin $T/etc $T/lib/native $T/libexec $T/sbin $T/share/hadoop --exclude jdiff --exclude sources
+        tar zxvf $T.tar.gz $T/bin $T/etc $T/lib/native $T/libexec $T/sbin $T/share/hadoop --exclude jdiff --exclude sources || exit 1
         rm $T.tar.gz
         PRF=/home/$1/.bash_profile
         if ! grep -q $T $PRF; then
           echo "export PATH=\\$PATH:$BASE/$T/bin" >> $PRF
         fi
+
         echo "Customizing Hadoop $VERSION ..."
         cat <<-EOF > /etc/hadoop/hadoop-env.sh
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
@@ -576,13 +601,13 @@ export HADOOP_CONF_DIR=/etc/hadoop
 HADOOP_LOG_DIR=/var/log/hadoop
 EOF
         # Download a custom VM configuration
-        cd /; wget -O - https://tiny.cc/vm-hadoop-conf | tar zxv
+        cd /; wget -O - https://doc-misc.web.app/BigData/vm-hadoop-conf-2.tgz | tar zxv
         # Install it into the downloaded hadoop
         cd $BASE/$T; mv etc/hadoop etc/hadoop.orig; ln -s /etc/hadoop etc
         # Prepare folders
         for d in /var/log/hadoop /data/hdfs /data/yarn
         do
-           mkdir -p $d; chown $1.$1 $d
+           mkdir -p $d; chown $1:$1 $d
         done
         # Ensure vmuser can do ssh to localhost
         D=/home/$1/.ssh
@@ -604,20 +629,19 @@ USEREOF
       inline: <<-SHELL
         /bin/echo -e "\n..... Installing ELK stack"
         SRV=artifacts.elastic.co
-        wget -qO - https://$SRV/GPG-KEY-elasticsearch | apt-key add -
-        test -f /etc/apt/sources.list.d/elastic-7.x.list || \
-	      echo "deb https://$SRV/packages/7.x/apt stable main" | \
-	      sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+        wget -qO - https://$SRV/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://$SRV/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
 
         apt-get update
-        apt-get install -y elasticsearch
-        apt-get install -y kibana logstash
-        mkdir -p /var/log/kibana && chown kibana.kibana /var/log/kibana
-        #mkdir -p "$ELDIR" && chown elasticsearch.elasticsearch ${ELDIR}
+        apt-get install -y elasticsearch || exit 1
+        apt-get install -y kibana || exit 1
+        mkdir -p /var/log/kibana && chown kibana:kibana /var/log/kibana
+        #mkdir -p "$ELDIR" && chown elasticsearch:elasticsearch ${ELDIR}
 
         wget http://tiny.cc/cfgfilemgr -O /opt/ipnb/bin/app-config-manager.py
         MAKECONF='/opt/ipnb/bin/python /opt/ipnb/bin/app-config-manager.py --rewrite'
 
+        echo "*** Configuring Elastic & Kibana"
         ${MAKECONF} --sep ': ' /etc/kibana/kibana.yml \
 		'logging.dest: "/var/log/kibana/kibana.log"' \
 		'console.enabled: false' \
@@ -637,9 +661,10 @@ USEREOF
 -Xmx${ES_HEAP:-512m}
 EOF
 
-       # This is applicable if the process is running inside a VM and the data
+       ##apt-get install -y logstash || exit 1
+       ##id -u vagrant >/dev/null 2>&1 && usermod logstash -G vagrant -a
+       # This is needed if the process is running inside a VM and the data
        # folder is a mounted folder
-       id -u vagrant >/dev/null 2>&1 && usermod logstash -G vagrant -a
 
        su -l "vagrant" -c "pip install elasticsearch elasticsearch-dsl"
       SHELL
@@ -651,7 +676,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        KAFKA_VERSION=2.8.1
+        KAFKA_VERSION=3.9.0
         KAFKA_BASE=/opt/kafka
         KAFKA_ADDR=localhost:9092
         ZK_PORT=2181
@@ -685,7 +710,7 @@ EOF
             -e "s@clientPort=.*@clientPort=$ZK_PORT@" $Z
         echo "..... Download management scripts"
         cd bin
-        wget --progress=dot:giga -O - https://tiny.cc/kafka-services | tar zxv
+        wget --progress=dot:giga -O - https://doc-misc.web.app/BigData/kafka-services-2.tgz | tar zxv
       SHELL
 
     vgrml.vm.provision "kafdrop",
@@ -708,8 +733,10 @@ EOF
       args: [ vm_username, spark_basedir ],
       inline: <<-SHELL
         /bin/echo -e "\n..... Installing NOSQL stack"
-        wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
-        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+        curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+          sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg \
+          --dearmor
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
         add-apt-repository ppa:redislabs/redis
         apt-get update
         apt-get install -y mongodb-org redis
@@ -723,9 +750,9 @@ EOF
 # NoSQL sources
 
 # MongoDB
-##spark.jars.packages=org.mongodb.spark:mongo-spark-connector_2.12:3.0.1
+##spark.jars.packages=org.mongodb.spark:mongo-spark-connector_2.12:10.4.1
 # Redis
-##spark.jars.packages=com.redislabs:spark-redis_2.12:2.6.0
+##spark.jars.packages=com.redislabs:spark-redis_2.12:3.1.0
 EOF
       SHELL
 
@@ -743,8 +770,8 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-1.4.1106-amd64.deb
-        wget --no-verbose https://download2.rstudio.org/server/xenial/amd64/$PKG
+        PKG=rstudio-server-2024.12.0-467-amd64.deb
+        wget --no-verbose https://download2.rstudio.org/server/jammy/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
@@ -763,17 +790,39 @@ EOF
       SHELL
 
     # .........................................
-    # Install additional packages for NLP
-    vgrml.vm.provision "nlp",
+    # Install the necessary components for nbconvert to work.
+    vgrml.vm.provision "nbc",
       type: "shell",
       run: "never",
-      privileged: true,
+      privileged: false,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        echo "Installing additional NLP packages"
-        # pattern is Python 2 only
-        su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
+          echo "Installing nbconvert requirements"
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern inkscape
+          pip install nb-pdf-template
+          # We modify the LaTeX template to generate A4 pages
+          # (comment this out to keep Letter-sized pages)
+          sudo -u vagrant perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+          # Use an improved template
+          LINE="c.LatexExporter.template_name = 'latex_authentic'"
+          echo $LINE | sudo -u $1 tee -a /home/$1/.jupyter/jupyter_notebook_config.py
+      SHELL
+
+    # .........................................
+    # Optional: modify nbconvert to process Spanish documents
+    vgrml.vm.provision "nbc.es",
+      type: "shell",
+      run: "never",
+      privileged: false,
+      keep_color: true,
+      inline: <<-SHELL
+          # Define language
+          LANGUAGE=spanish
+          echo "** Adding support for $LANGUAGE to LaTeX"
+          sudo apt-get install -y texlive-lang-spanish
+          echo "** Converting base LaTeX template for $LANGUAGE"
+          perl -pi -e 's|(\\\\usepackage\\{eurosym}.*)|${1}\n    \\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
     # .........................................
@@ -785,7 +834,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.5.4
+        VERSION=3.9.9
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
@@ -818,13 +867,7 @@ EOF
         # Install sbt
         echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
-        # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs"
-        cat <<EOF >> /home/$1/.emacs
-
-; Install MELPA package repository
-(require 'package)
-(add-to-list 'package-archives
+        # Install scala-mhives
             '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
 ; Install Scala mode
@@ -832,9 +875,8 @@ EOF
     (package-refresh-contents) (package-install 'scala-mode))
 
 EOF
-         chown $1.$1 /home/$1/.emacs
+         chown $1:$1 /home/$1/.emacs
       SHELL
-
 
     # .........................................
     # Install some Deep Learning frameworks
@@ -844,10 +886,8 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         # Tensorflow 2 needs pip >= 19.0
-         pip install --upgrade pip
-         pip install --upgrade tensorflow-cpu
-         pip install --upgrade torch torchvision
+         pip install --upgrade "tensorflow-cpu==2.18"
+         pip install --upgrade torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
 
 
