@@ -10,6 +10,7 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
+
 # Number of CPU cores assigned to the VM
 vm_cpus = '2'
 
@@ -277,7 +278,7 @@ USEREOF
     # Create the IPython Notebook profile ready to run Spark jobs
     # and install all kernels: Pyspark, Scala, IRKernel, and extensions
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
-    vgrml.vm.provision "10.config",
+    vgrml.vm.provision "10.jupyterconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -382,7 +383,8 @@ PYTH
 EOF
     SHELL
 
-    vgrml.vm.provision "13.ir",
+    # R Kernel
+    vgrml.vm.provision "13.ir-kernel",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -415,25 +417,30 @@ EOF
       cd $1/current/conf
       for f in spark-defaults.conf spark-env.sh
       do
-        sed -i -e 's/0\.8\.3-spark3\.3/0.8.3-spark3.4/' $f.local.graphframes
+        sed -i -e 's/0\.8\.3-spark3\.5/0.8.3-spark3.5/' $f.local.graphframes
       done
     SHELL
 
 
-    vgrml.vm.provision "15.log4j",
+    # Update spark config
+    vgrml.vm.provision "15.sparkconf",
     type: "shell",
     privileged: true,
     keep_color: true,
     args: [ spark_basedir ],
     inline: <<-SHELL
      cd $1/current/conf
+     # Log4j
      mv log4j.properties orig/log4j.properties.old
      cp -p orig/log4j2.properties.template log4j2.properties
+     sed -i 's/rootLogger.level = info/rootLogger.level = warn/' log4j2.properties
+     # Make the Hive configuration available
+     ln -s hadoop/hive-site.xml .
     SHELL
 
     # .........................................
     # Create a configuration file for sparklyr/Rstudio
-    vgrml.vm.provision "20.Rconfig",
+    vgrml.vm.provision "20.Rconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -482,7 +489,7 @@ EOF
     # .........................................
     # Install the Notebook startup script & configure it
     # Configure Spark execution mode & remote access if defined
-    vgrml.vm.provision "31.nbconfig",
+    vgrml.vm.provision "31.nbconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -589,17 +596,19 @@ EOF
     vgrml.vm.provision "nbc",
       type: "shell",
       run: "never",
-      privileged: true,
+      privileged: false,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern inkscape nb-pdf-template
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern inkscape
+          pip install nb-pdf-template
           # We modify the LaTeX template to generate A4 pages
-          # (comment this out to keep Letter-sized pages) 
-          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+          # (comment this out to keep Letter-sized pages)
+          sudo -u vagrant perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
           # Use an improved template
-          echo "c.LatexExporter.template_name = 'latex_authentic'" >> $HOME/.jupyter/jupyter_notebook_config.py
+          LINE="c.LatexExporter.template_name = 'latex_authentic'"
+          echo $LINE | sudo -u $1 tee -a /home/$1/.jupyter/jupyter_notebook_config.py
       SHELL
 
     # .........................................
@@ -615,7 +624,7 @@ EOF
           echo "** Adding support for $LANGUAGE to LaTeX"
           sudo apt-get install -y texlive-lang-spanish
           echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's|(\\\\usepackage\\{fontspec})|${1}\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+          perl -pi -e 's|(\\\\usepackage\\{eurosym}.*)|${1}\n    \\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
     # .........................................
@@ -682,7 +691,7 @@ EOF
          pip install --upgrade "tensorflow-cpu==2.18"
          pip install --upgrade torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
- 
+
 
     # *************************************************************************
 
