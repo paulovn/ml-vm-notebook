@@ -4,19 +4,19 @@ A 64 bit virtual machine for Machine Learning/Data Science tasks.
 Generated and provisioned with Vagrant.
 
 This instance builds on the `ml-base64` VM (which already provides all 
-the needed software packages, on an Ubuntu 22.04 box). On top of that, it
+the needed software packages, on an Ubuntu 24.04 box). On top of that, it
 configures and launches a Jupyter Notebook process, exported as an HTTP service
 to a local port. It allows creating notebooks with two different kernels:
-  * Python 3.10 (Python, with installed additional libraries such as NumPy, SciPy,
+  * Python 3.12 (Python, with installed additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
   * R (IRkernel)
 
 The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
-* Python 3.10
-* A virtualenv for Python 3.10 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, xgboost, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
-* R 4.3 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies).
+* Python 3.12
+* A virtualenv for Python 3.12 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
+* R 4.4 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies).
 
 
 ## Installation
@@ -27,6 +27,7 @@ The contents of the VM are:
   and around 10 GB of hard disk space, with a 64-bit Windows (7 or above), 
   Linux 64 bits (Ubuntu, RedHat/CentOS, etc) or Mac OS X. Note: **the VM will
   not work with M1/M2/M3 Mac computers, it needs an Intel-based computer**
+
 * Software: The following must be installed in the computer:
   * [Virtualbox](https://www.virtualbox.org/) 6.0 or above (if possible, use the latest version available)
   * [Vagrant](https://www.vagrantup.com/) 2.0 or above (if possible, use the latest version available)
@@ -160,9 +161,6 @@ It includes the following list:
 | rstudio | RStudio Server. See below for details |
 | nbc | Notebook convert (functionality for Notebook conversion to document formats: LaTeX & PDF) |
 | nbc.es | Configure Notebook conversion to documents for Spanish |
-| nlp | Some additional Python packages for Natural Language Processing |
-| mvn | Maven build automation tool for Java |
-| scala  | Scala & SBT |
 
 
 Note: for RStudio it will be also necessary to open port 8787 in the

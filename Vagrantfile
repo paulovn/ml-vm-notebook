@@ -10,8 +10,9 @@
 
 # RAM memory used for the VM, in MB
 vm_memory = '2048'
+
 # Number of CPU cores assigned to the VM
-vm_cpus = '1'
+vm_cpus = '2'
 
 # Password to use to access the Notebook web interface
 vm_password = 'vmuser'
@@ -24,6 +25,9 @@ vm_username = 'vmuser'
 # So to access the notebook server, you point to http://localhost:<port>
 port_nb = 8008
 
+
+# Size of the swap file in MB. Use 0 for no swap
+swap_size = 2000
 
 # --------------------------------------------------------------------------
 # Vagrant configuration
@@ -60,7 +64,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 3.3.1"
+    vgrml.vm.box_version = "= 3.4.0"
 
     # Alternative place: box elsewhere
     #vgrml.vm.box_url = "http://tiny.cc/ml-base64-331-box"
@@ -82,7 +86,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
 
     # Customize the virtual machine: set hostname & resources (RAM, CPUs)
-    vgrml.vm.hostname = "vgr-machinelearning-33"
+    vgrml.vm.hostname = "vgr-machinelearning-34"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -91,7 +95,7 @@ Vagrant.configure(2) do |config|
       # Set the number of CPUs
       vb.cpus = vm_cpus
       # Use the DNS proxy of the NAT engine (helps in some VPN environments)
-      #vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       # Control guest clock adjustment
       vb.customize ["guestproperty", "set", :id,
                     "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
@@ -146,7 +150,29 @@ Vagrant.configure(2) do |config|
     # These are run by default upon VM installation
 
     # .........................................
-    # Create the user to run jobs (esp. notebook processes)
+    # Create a swap file
+    vgrml.vm.provision "00.swap",
+    type: "shell",
+    privileged: true,
+    args: [ swap_size ],
+    inline: <<-SHELL
+      if [ -f /etc/fstab.swap -a "$1" -gt 0 ]
+      then
+        SWAPFILE=/swap.img
+        echo "Creating swapfile ($1 MB)"
+        dd if=/dev/zero of=$SWAPFILE bs=1MiB count=$1
+        chmod 600 $SWAPFILE
+        mkswap $SWAPFILE
+
+        mv /etc/fstab /etc/fstab.noswap
+        cp -p /etc/fstab.swap /etc/fstab
+
+        swapon --all
+      fi
+    SHELL
+
+    # .........................................
+    # Create the user to run Spark jobs (esp. notebook processes)
     vgrml.vm.provision "01.nbuser",
     type: "shell",
     privileged: true,
@@ -173,7 +199,7 @@ export R_LIBS_USER=~/.Rlibrary
 # Jupyter uses this to define datadir but it is undefined when using "runuser"
 test "$XDG_RUNTIME_DIR" || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 ENDPROFILE
-      chown $1.$1 /home/$1/.bash_profile
+      chown $1:$1 /home/$1/.bash_profile
 
       # Create some local files as the designated user
       su -l "$1" <<'USEREOF'
@@ -189,13 +215,13 @@ USEREOF
 
       # Install the vagrant public key so that we can ssh to this account
       cp -p /home/vagrant/.ssh/authorized_keys /home/$1/.ssh/authorized_keys
-      chown $1.$1 /home/$1/.ssh/authorized_keys
+      chown $1:$1 /home/$1/.ssh/authorized_keys
     SHELL
 
     # .........................................
     # Create the IPython Notebook profile
     # Prepared for IPython >=4 (so that we configure as a Jupyter app)
-    vgrml.vm.provision "10.config",
+    vgrml.vm.provision "10.jupyterconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -208,7 +234,7 @@ USEREOF
      # --------------------- Create the Jupyter config
      echo "Creating Jupyter config"
      CFGFILE="/home/$USERNAME/.jupyter/jupyter_notebook_config.py"
-     cat <<-EOF >$CFGFILE
+     cat <<-EOF > $CFGFILE
 from os import environ
 c.ServerApp.ip = '0.0.0.0'
 c.ServerApp.port = $3
@@ -219,10 +245,12 @@ c.ServerApp.log_level = 'INFO'
 #c.ServerApp.password = '$PASS'
 c.PasswordIdentityProvider.hashed_password = '$PASS'
 EOF
-     chown $USERNAME.$USERNAME $CFGFILE
+     chown $USERNAME:$USERNAME $CFGFILE
+
     SHELL
 
-    vgrml.vm.provision "13.ir",
+    # R Kernel
+    vgrml.vm.provision "13.ir-kernel",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -242,23 +270,26 @@ EOF
     type: "shell",
     privileged: true,
     keep_color: true,
+    args: [ vm_username ],
     inline: <<-SHELL
-      su -l "vagrant" <<-'EOF'
+      USERNAME=$1
+      su -l "$USERNAME" <<-'EOF'
 # --------------------- Put the custom Jupyter icon in place
 cd /opt/ipnb/lib/python?.*/site-packages
 B=$PWD
 for d in jupyter_server/static jupyter_server/static/favicons
 do
         cd $B/$d
-        test -f favicon.ico && mv favicon.ico favicon.ico.orig
+        test -f favicon.ico && mv favicon.ico favicon-orig.ico
         ln -s $B/notebook/static/base/images/favicon-custom.ico favicon.ico
 done
 EOF
-    SHELL
+     SHELL
 
     # .........................................
     # Install the Notebook startup script & configure it
-    vgrml.vm.provision "31.nbconfig",
+    # Configure Spark execution mode & remote access if defined
+    vgrml.vm.provision "31.nbconf",
     type: "shell",
     privileged: true,
     keep_color: true,
@@ -289,7 +320,6 @@ EOF
     # Optional provisioning
     # These need to be run explicitly
 
-
     # .........................................
     # Install RStudio server
     # *** Don't forget to also uncomment forwarding for port 8787!
@@ -304,7 +334,7 @@ EOF
         apt-get update
         apt-get install -y gdebi-core
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-2023.09.0-463-amd64.deb
+        PKG=rstudio-server-2024.12.0-467-amd64.deb
         wget --no-verbose https://download2.rstudio.org/server/jammy/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
         # Define the directory for the user library, and the working directory
@@ -328,15 +358,19 @@ EOF
     vgrml.vm.provision "nbc",
       type: "shell",
       run: "never",
-      privileged: true,
+      privileged: false,
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
           echo "Installing nbconvert requirements"
-          apt-get update && apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc texlive-latex-recommended texlive-plain-generic texlive-xetex texlive-fonts-recommended lmodern inkscape
+          pip install nb-pdf-template
           # We modify the LaTeX template to generate A4 pages
           # (comment this out to keep Letter-sized pages)
-          perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+          sudo -u vagrant perl -pi -e 's|(\\\\geometry\\{)|${1}a4paper,|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
+          # Use an improved template
+          LINE="c.LatexExporter.template_name = 'latex_authentic'"
+          echo $LINE | sudo -u $1 tee -a /home/$1/.jupyter/jupyter_notebook_config.py
       SHELL
 
     # .........................................
@@ -352,80 +386,7 @@ EOF
           echo "** Adding support for $LANGUAGE to LaTeX"
           sudo apt-get install -y texlive-lang-spanish
           echo "** Converting base LaTeX template for $LANGUAGE"
-          perl -pi -e 's|(\\\\usepackage\\{fontspec})|${1}\\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
-      SHELL
-
-    # .........................................
-    # Install additional packages for NLP
-    vgrml.vm.provision "nlp",
-      type: "shell",
-      run: "never",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        echo "Installing additional NLP packages"
-        # pattern is Python 2 only
-        su -l "vagrant" -c "pip install nltk sklearn_crfsuite spacy"
-      SHELL
-
-    # .........................................
-    # Install Maven
-    vgrml.vm.provision "mvn",
-      type: "shell",
-      run: "never",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        VERSION=3.6.3
-        DEST=/opt/maven
-        echo "Installing Maven $VERSION"
-        PKG=apache-maven-$VERSION
-        FILE=$PKG-bin.tar.gz
-        cd /tmp
-        wget http://apache.rediris.es/maven/maven-3/$VERSION/binaries/$FILE
-        rm -rf /home/$1/bin/mvn $DEST
-        mkdir -p $DEST
-        tar zxvf $FILE -C $DEST
-        su $1 -c "ln -s $DEST/$PKG/bin/mvn /home/$1/bin"
-      SHELL
-
-    # Install Scala development tools
-    vgrml.vm.provision "scala",
-      type: "shell",
-      run: "never",
-      privileged: true,
-      keep_color: true,
-      args: [ vm_username ],
-      inline: <<-SHELL
-        # Download & install Scala
-        cd install
-        VERSION=2.12.11
-        PKG=scala-$VERSION.deb
-        echo "Downloading & installing Scala $VERSION"
-        wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
-        sudo dpkg -i $PKG && rm $PKG
-        # Install sbt
-        echo "Installing sbt"
-        # Install sbt
-        echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
-        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
-        # Install scala-mode for Emacs
-        echo "Configuring scala-mode in Emacs"
-        cat <<EOF >> /home/$1/.emacs
-
-; Install MELPA package repository
-(require 'package)
-(add-to-list 'package-archives
-            '("melpa-stable" . "https://stable.melpa.org/packages/") t)
-(package-initialize)
-; Install Scala mode
-(unless (package-installed-p 'scala-mode)
-    (package-refresh-contents) (package-install 'scala-mode))
-
-EOF
-         chown $1.$1 /home/$1/.emacs
+          perl -pi -e 's|(\\\\usepackage\\{eurosym}.*)|${1}\n    \\\\usepackage{polyglossia}\\\\setmainlanguage{'$LANGUAGE'}|' /opt/ipnb/share/jupyter/nbconvert/templates/latex/base.tex.j2
       SHELL
 
     # .........................................
@@ -436,8 +397,8 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu>=2.14"
-         pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+         pip install --upgrade "tensorflow-cpu==2.18"
+         pip install --upgrade torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
 
 
