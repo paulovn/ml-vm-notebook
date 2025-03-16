@@ -667,9 +667,18 @@ EOF
         # Install sbt
         echo "Installing sbt"
         # Install sbt
-        echo "deb https://dl.bintray.com/sbt/debian /" > /etc/apt/sources.list.d/sbt.list
-        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && apt-get update && apt-get install -y sbt
-        # Install scala-mhives
+        echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
+        echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | sudo tee /etc/apt/sources.list.d/sbt_old.list
+        curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo tee /etc/apt/trusted.gpg.d/sbt.asc
+        sudo apt-get update
+        sudo apt-get install sbt
+        # Install scala-mode for Emacs
+        echo "Configuring scala-mode in Emacs"
+        cat <<EOF >> /home/$1/.emacs
+
+; Install MELPA package repository
+(require 'package)
+(add-to-list 'package-archives
             '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
 ; Install Scala mode
