@@ -636,7 +636,7 @@ EOF
       keep_color: true,
       args: [ vm_username ],
       inline: <<-SHELL
-        VERSION=3.9.9
+        VERSION=3.9.12
         DEST=/opt/maven
         echo "Installing Maven $VERSION"
         PKG=apache-maven-$VERSION
