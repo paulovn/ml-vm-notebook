@@ -98,13 +98,13 @@ Vagrant.configure(2) do |config|
 
   config.vm.boot_timeout = 600
 
-  config.vm.define "spark-35" do |vgrml|
+  config.vm.define "spark-36" do |vgrml|
 
     #config.name = "vgr-pyspark"
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/spark-base64"
-    vgrml.vm.box_version = "= 3.5.0"
+    vgrml.vm.box_version = "= 3.6.0"
 
     # Alternative place: a local box
     #vgrml.vm.box_url = "file:///almacen/VM/Export/VagrantBox/spark-base64-LOCAL.json"
@@ -124,7 +124,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
 
     # Customize the virtual machine: set hostname & resources (RAM, CPUs)
-    vgrml.vm.hostname = "vgr-spark-35"
+    vgrml.vm.hostname = "vgr-spark-36"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -363,22 +363,33 @@ EOF
        echo " .. downloading coursier"
        curl -Lo coursier https://git.io/coursier-cli 2>k.log || cat k.log
        chmod +x coursier
+
        echo " .. installing almond kernel"
-       ./coursier launch --fork almond --scala 2.12.11 --main-class almond.ScalaKernel -- --install --force 2>k.log || cat k.log
+       ./coursier launch  almond --scala 2.13.18 --main-class almond.ScalaKernel --fork \
+          -- --install --force \
+          2>k.log || cat k.log
        rm -f coursier k.log
+
+       # Java 17 restricts deep reflection on internal JDK classes, preventing external classes accessing private fields
+       # https://github.com/EsotericSoftware/kryo/issues/885
+       # https://docs.oracle.com/en/java/javase/17/migrate/migrating-jdk-8-later-jdk-releases.html#GUID-7BB28E4D-99B3-4078-BDC4-FC24180CE82B
        echo " .. configuring almond kernel"
        /opt/ipnb/bin/python <<PYTH
 import json
+from itertools import chain
+op = ('java.nio', 'sun.nio.ch', 'java.util', 'java.lang', 'java.lang.invoke')
+op = map(lambda o: ['--add-opens', f'java.base/{o}=ALL-UNNAMED'], op)
 with open('${KERNEL_FILE}') as f:
    k = json.load(f)
-k['display_name'] = 'Scala 2.12 (Almond)'
+k['argv'] = k['argv'][0:1] + list(chain.from_iterable(op)) + k['argv'][1:]
+k['display_name'] = 'Scala 2.13 (Almond)'
 if 'env' not in k:
    k['env'] = {'SPARK_SUBMIT_OPTS': ''}
 k['env']['SPARK_HOME'] = "${SPARK_BASE}/current"
 k['env']['SPARK_CONF_DIR'] = "${SPARK_BASE}/current/conf"
 k['env']['SPARK_SUBMIT_OPTS'] += " -Xms1024M -Xmx2048M -Dlog4j.logLevel=info"
 with open('${KERNEL_FILE}','w') as f:
-   json.dump(k, f, sort_keys=True)
+   json.dump(k, f, sort_keys=True, indent=2)
 PYTH
 EOF
     SHELL
@@ -405,20 +416,6 @@ EOF
      #ENVLINE='  "env": { "SPARK_HOME": "'$1'/current" },'
      #POS=$(sed -n '/"argv"/=' $KERNEL_JSON)
      #sed -i "${POS}i $ENVLINE" $KERNEL_JSON
-    SHELL
-
-    vgrml.vm.provision "14.gfversion",
-    type: "shell",
-    run: "never",
-    privileged: false,
-    keep_color: true,
-    args: [ spark_basedir ],
-    inline: <<-SHELL
-      cd $1/current/conf
-      for f in spark-defaults.conf spark-env.sh
-      do
-        sed -i -e 's/0\.8\.3-spark3\.5/0.8.3-spark3.5/' $f.local.graphframes
-      done
     SHELL
 
 
@@ -547,12 +544,10 @@ EOF
         then
            echo "activating GraphFrames"
            ln -sf opt/${NAME}.graphframes $NAME
-           ln -sf opt/spark-env.sh.graphframes spark-env.sh
         elif [ "$(readlink $NAME)" = "opt/${NAME}.graphframes" ]
         then
            echo "deactivating GraphFrames"
            ln -sf opt/${NAME}.local ${NAME}
-           ln -sf opt/spark-env.sh.local spark-env.sh
         else
            echo "No local configuration active"
         fi
@@ -659,19 +654,20 @@ EOF
       inline: <<-SHELL
         # Download & install Scala
         cd install
-        VERSION=2.12.11
+        VERSION=2.13.18
         PKG=scala-$VERSION.deb
         echo "Downloading & installing Scala $VERSION"
         wget --no-verbose http://downloads.lightbend.com/scala/$VERSION/$PKG
         sudo dpkg -i $PKG && rm $PKG
+
         # Install sbt
         echo "Installing sbt"
-        # Install sbt
-        echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
-        echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | sudo tee /etc/apt/sources.list.d/sbt_old.list
-        curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo tee /etc/apt/trusted.gpg.d/sbt.asc
+        curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo gpg --dearmor -o /etc/apt/keyrings/scalasbt.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/scalasbt.gpg] https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
+        echo "deb [signed-by=/etc/apt/keyrings/scalasbt.gpg] https://repo.scala-sbt.org/scalasbt/debian /" | sudo tee /etc/apt/sources.list.d/sbt_old.list
         sudo apt-get update
         sudo apt-get install sbt
+
         # Install scala-mode for Emacs
         echo "Configuring scala-mode in Emacs"
         cat <<EOF >> /home/$1/.emacs
@@ -697,7 +693,7 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu==2.18"
+         pip install --upgrade "tensorflow-cpu==2.20"
          pip install --upgrade torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
 

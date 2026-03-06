@@ -10,17 +10,17 @@ to a local port. It allows creating notebooks with four different kernels:
   * Python 3.12 (plain Python, with additional libraries such as NumPy, SciPy,
     Pandas, Matplotlib, Scikit-learn, etc), 
   * Pyspark (Python 3.12 + libraries + Spark),
-  * Scala 2.12 (with the capability of connecting to Spark)
+  * Scala 2.13 (with the capability of connecting to Spark)
   * R (with SparkR available, though not loaded by default).
 
 The repository also contains a number of small example notebooks.
 
 The contents of the VM are:
 
-* [Apache Spark](http://spark.apache.org/) 3.5.4
+* [Apache Spark](http://spark.apache.org/) 4.1.1
 * Python 3.12
 * A virtualenv for Python 3.12 with a scientific Python stack (scipy, numpy, matplotplib, pandas, statmodels, scikit-learn, gensim, networkx, seaborn, pylucene and a few others) plus IPython 8 + Jupyter notebook
-* R 4.4 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
+* R 4.5 with a few packages installed (rmarkdown, magrittr, dplyr, tidyr, data.table, ggplot2, caret, plus their dependencies). Plus SparkR & [sparklyr](http://spark.rstudio.com/) for interaction with Spark.
 * Spark notebook Kernels for Python 3.12, Scala ([Almond](https://almond.sh/)) and R ([IRKernel](https://github.com/IRkernel/IRkernel)), in addition to the default "plain" (i.e. non-Spark capable) Python 3.12 kernel.
 * A few small [notebook extensions](https://github.com/paulovn/nbextensions)
   (only for the "classic" notebook interface)
