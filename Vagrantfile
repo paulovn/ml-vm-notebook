@@ -64,7 +64,7 @@ Vagrant.configure(2) do |config|
 
     # The base box we are using. As fetched from ATLAS
     vgrml.vm.box = "paulovn/ml-base64"
-    vgrml.vm.box_version = "= 3.4.0"
+    vgrml.vm.box_version = "= 3.5.0"
 
     # Alternative place: box elsewhere
     #vgrml.vm.box_url = "http://tiny.cc/ml-base64-331-box"
@@ -86,7 +86,7 @@ Vagrant.configure(2) do |config|
     #auto_mount: false
 
     # Customize the virtual machine: set hostname & resources (RAM, CPUs)
-    vgrml.vm.hostname = "vgr-machinelearning-34"
+    vgrml.vm.hostname = "vgr-machinelearning-35"
     vgrml.vm.provider :virtualbox do |vb|
       # Set the hostname in VirtualBox
       vb.name = vgrml.vm.hostname.to_s
@@ -123,7 +123,7 @@ Vagrant.configure(2) do |config|
 
     # RStudio server
     # =====> if using RStudio, uncomment the following line and reload the VM
-    #vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
+    vgrml.vm.network :forwarded_port, host: 8787, guest: 8787
 
     # ---- bridged interface ----
     # Declare a public network
@@ -333,10 +333,12 @@ EOF
         echo "Downloading & installing RStudio Server"
         apt-get update
         apt-get install -y gdebi-core
+
         # Download & install the package for RStudio Server
-        PKG=rstudio-server-2024.12.0-467-amd64.deb
+        PKG=rstudio-server-2026.01.1-403-amd64.deb
         wget --no-verbose https://download2.rstudio.org/server/jammy/amd64/$PKG
         gdebi -n $PKG && rm -f $PKG
+
         # Define the directory for the user library, and the working directory
         CNF=/etc/rstudio/rsession.conf
         grep -q r-libs-user $CNF || cat >>$CNF <<EOF
@@ -344,11 +346,12 @@ r-libs-user=~/.Rlibrary
 session-default-working-dir=/home/$1/R
 session-default-new-project-dir=/home/$1/R
 EOF
+
         # Create a link to the host-mounted R subdirectory
         sudo -i -u "$1" bash -c "rm -f R; ln -s /vagrant/R/ R"
         # Set the password for the user, so that it can log in in RStudio
         echo "$1:$2" | chpasswd
-        # Send message
+        # Send message to console
         echo "RStudio Server should be accessed at http://localhost:8787"
         echo "(if not, check in Vagrantfile that port 8787 has been forwarded)"
       SHELL
@@ -397,7 +400,7 @@ EOF
       privileged: false,
       keep_color: true,
       inline: <<-SHELL
-         pip install --upgrade "tensorflow-cpu==2.18"
+         pip install --upgrade "tensorflow-cpu==2.20"
          pip install --upgrade torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
       SHELL
 
